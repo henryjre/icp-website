@@ -1,0 +1,1 @@
+ALTER TYPE "public"."DocumentCategory" ADD VALUE IF NOT EXISTS 'PROJECT_PLAN';

@@ -1,0 +1,20 @@
+{
+  "name": "icp-website-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:server\"",
+    "dev:web": "npm run dev --workspace @icp/web",
+    "dev:server": "npm run dev --workspace @icp/server",
+    "build": "npm run build:web && npm run build:server",
+    "build:web": "npm run build --workspace @icp/web",
+    "build:server": "npm run build --workspace @icp/server"
+  },
+  "devDependencies": {
+    "concurrently": "9.2.1"
+  }
+}

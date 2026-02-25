@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  editor
+  client
+}
+
+enum UserStatus {
+  Pending
+  Active
+  Rejected
+  Archived
+}
+
+enum InviteStatus {
+  Active
+  Archived
+  Expired
+}
+
+enum ProjectStatus {
+  Completed
+  Ongoing
+}
+
+enum ElementStatus {
+  Casted
+  Delivered
+}
+
+enum ActivityType {
+  created
+  updated
+  status
+  document
+  comment
+  delivered
+}
+
+enum DocumentCategory {
+  TEST_RESULT
+  PLAN
+  PROJECT_GENERAL
+  PROJECT_PLAN
+}
+
+enum DocumentScope {
+  PROJECT
+  ELEMENT
+}
+
+enum DocumentType {
+  PDF
+  DOCX
+  XLSX
+  DWG
+  DXF
+  OTHER
+}
+
+model User {
+  id                String         @id @default(cuid())
+  fullName          String
+  email             String         @unique
+  passwordHash      String
+  role              Role?
+  status            UserStatus     @default(Pending)
+  rejectedReason    String?
+  isActive          Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  refreshTokens     RefreshToken[]
+  createdProjects   Project[]      @relation("ProjectCreator")
+  createdElements   Element[]      @relation("ElementCreator")
+  uploadedDocuments Document[]     @relation("DocumentUploader")
+  activities        Activity[]     @relation("ActivityActor")
+  createdInvites    InviteCode[]   @relation("InviteCreatedBy")
+  archivedInvites   InviteCode[]   @relation("InviteArchivedBy")
+  inviteUses        InviteUse[]
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model InviteCode {
+  id           String       @id @default(cuid())
+  code         String       @unique
+  label        String?
+  status       InviteStatus @default(Active)
+  expiresAt    DateTime?
+  maxUses      Int?
+  useCount     Int          @default(0)
+  createdById  String
+  archivedById String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  createdBy  User      @relation("InviteCreatedBy", fields: [createdById], references: [id])
+  archivedBy User?     @relation("InviteArchivedBy", fields: [archivedById], references: [id])
+  uses       InviteUse[]
+
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model InviteUse {
+  id           String   @id @default(cuid())
+  inviteCodeId String
+  email        String
+  usedAt       DateTime @default(now())
+  userId       String?
+
+  inviteCode InviteCode @relation(fields: [inviteCodeId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([inviteCodeId])
+  @@index([email])
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  seq            Int           @unique @default(autoincrement())
+  projectCode    String        @unique @default("")
+  name           String
+  location       String
+  dateStarted    DateTime
+  status         ProjectStatus
+  completionDate DateTime?
+  thumbnail      String
+  clientName     String
+  createdById    String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  createdBy  User       @relation("ProjectCreator", fields: [createdById], references: [id])
+  elements   Element[]
+  documents  Document[]
+  activities Activity[]
+}
+
+model Element {
+  id            String        @id @default(cuid())
+  seq           Int           @unique @default(autoincrement())
+  shortToken    String        @unique @default("")
+  projectId     String
+  name          String
+  location      String
+  status        ElementStatus
+  castingDate   DateTime
+  createdById   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy  User       @relation("ElementCreator", fields: [createdById], references: [id])
+  documents  Document[]
+  activities Activity[]
+
+  @@index([projectId])
+}
+
+model Document {
+  id             String           @id @default(cuid())
+  projectId      String
+  elementId      String?
+  scope          DocumentScope    @default(ELEMENT)
+  category       DocumentCategory
+  name           String
+  docType        DocumentType
+  sizeBytes      Int
+  mimeType       String
+  s3Key          String           @unique
+  isConfidential Boolean          @default(false)
+  uploadedById   String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  element    Element? @relation(fields: [elementId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation("DocumentUploader", fields: [uploadedById], references: [id])
+
+  @@index([scope])
+  @@index([elementId])
+  @@index([projectId])
+  @@index([projectId, scope])
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  projectId   String?
+  elementId   String?
+  action      String
+  description String
+  type        ActivityType
+  actorId     String
+  occurredAt  DateTime     @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  element Element? @relation(fields: [elementId], references: [id], onDelete: Cascade)
+  actor   User     @relation("ActivityActor", fields: [actorId], references: [id])
+
+  @@index([projectId])
+  @@index([elementId])
+  @@index([actorId])
+}

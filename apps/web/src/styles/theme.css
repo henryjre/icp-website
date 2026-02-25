@@ -1,0 +1,433 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #f5f7fc;
+  --foreground: #1a237e;
+  --card: #edf1f8;
+  --card-foreground: #1a237e;
+  --popover: oklch(1 0 0);
+  --popover-foreground: #1a237e;
+  --brand-primary: #1a237e;
+  --brand-primary-hover: #0d1b6b;
+  --brand-secondary: #29aae2;
+  --brand-primary-soft: #e8edfc;
+  --brand-primary-border: #c8d5e8;
+  --brand-accent: #6cc24a;
+  --brand-accent-strong: #59aa38;
+  --brand-highlight: #d6f0fb;
+  --brand-text-muted: #4e5f7a;
+  --brand-border: #c8d5e8;
+  --brand-on-primary: #ffffff;
+  --brand-gold: #f5c518;
+  --brand-gold-hover: #e0b010;
+  --brand-surface-mid: #dce5f5;
+  --primary: var(--brand-primary);
+  --primary-foreground: #ffffff;
+  --secondary: var(--brand-secondary);
+  --secondary-foreground: #ffffff;
+  --muted: var(--card);
+  --muted-foreground: var(--brand-text-muted);
+  --accent: var(--brand-highlight);
+  --accent-foreground: var(--foreground);
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(26, 35, 126, 0.12);
+  --input: transparent;
+  --input-background: #edf1f8;
+  --switch-background: #b0c4de;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: var(--brand-primary);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --radius: 0.625rem;
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--brand-primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--brand-highlight);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--brand-border);
+  --sidebar-ring: var(--brand-primary);
+}
+
+.dark {
+  --background: oklch(0.12 0.01 250);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.18 0.01 250);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.15 0.01 250);
+  --popover-foreground: oklch(0.95 0 0);
+  --primary: oklch(0.65 0.22 264);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.72 0.12 210);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.22 0.01 250);
+  --muted-foreground: oklch(0.65 0.02 250);
+  --accent: oklch(0.65 0.15 148);
+  --accent-foreground: oklch(0.12 0 0);
+  --destructive: oklch(0.4 0.14 25);
+  --destructive-foreground: oklch(0.64 0.24 25);
+  --border: oklch(0.28 0.02 250);
+  --input: oklch(0.22 0.01 250);
+  --ring: oklch(0.65 0.22 264);
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.16 0.01 250);
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.65 0.22 264);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.22 0.01 250);
+  --sidebar-accent-foreground: oklch(0.95 0 0);
+  --sidebar-border: oklch(0.28 0.02 250);
+  --sidebar-ring: oklch(0.65 0.22 264);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-hover: var(--brand-primary-hover);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-strong: var(--brand-accent-strong);
+  --color-brand-highlight: var(--brand-highlight);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-gold-hover: var(--brand-gold-hover);
+  --color-brand-surface-mid: var(--brand-surface-mid);
+  --color-brand-text-muted: var(--brand-text-muted);
+}
+
+@layer utilities {
+  .bg-brand-primary {
+    background-color: var(--brand-primary);
+  }
+
+  .bg-brand-primary-hover {
+    background-color: var(--brand-primary-hover);
+  }
+
+  .hover-bg-brand-primary:hover {
+    background-color: var(--brand-primary-hover);
+  }
+
+  .hover-bg-brand-secondary:hover {
+    background-color: var(--brand-secondary);
+  }
+
+  .hover-bg-brand-card:hover {
+    background-color: var(--card);
+  }
+
+  .hover-text-brand-primary:hover {
+    color: var(--brand-primary);
+  }
+
+  .hover-text-brand-secondary:hover {
+    color: var(--brand-secondary);
+  }
+
+  .hover-text-brand-accent-strong:hover {
+    color: var(--brand-accent-strong);
+  }
+
+  .text-brand-primary {
+    color: var(--brand-primary);
+  }
+
+  .border-brand-primary {
+    border-color: var(--brand-primary);
+  }
+
+  .bg-brand-soft {
+    background-color: var(--brand-primary-soft);
+  }
+
+  .bg-brand-secondary {
+    background-color: var(--brand-secondary);
+  }
+
+  .text-brand-secondary {
+    color: var(--brand-secondary);
+  }
+
+  .border-brand-secondary {
+    border-color: var(--brand-secondary);
+  }
+
+  .text-brand-accent {
+    color: var(--brand-accent);
+  }
+
+  .bg-brand-accent {
+    background-color: var(--brand-accent);
+  }
+
+  .hover-bg-brand-accent:hover {
+    background-color: var(--brand-accent-strong);
+  }
+
+  .bg-brand-highlight {
+    background-color: var(--brand-highlight);
+  }
+
+  .border-brand-highlight {
+    border-color: var(--brand-highlight);
+  }
+
+  .bg-brand-surface {
+    background-color: var(--background);
+  }
+
+  .bg-brand-card {
+    background-color: var(--card);
+  }
+
+  .text-brand-body {
+    color: var(--foreground);
+  }
+
+  .text-brand-muted {
+    color: var(--brand-text-muted);
+  }
+
+  .text-brand-accent-strong {
+    color: var(--brand-accent-strong);
+  }
+
+  .text-brand-accent-light {
+    color: var(--brand-highlight);
+  }
+
+  .border-brand-accent {
+    border-color: var(--brand-accent);
+  }
+
+  .border-brand-accent-light {
+    border-color: var(--brand-primary-border);
+  }
+
+  .border-brand-border {
+    border-color: var(--brand-border);
+  }
+
+  .ring-brand {
+    --tw-ring-color: var(--brand-primary);
+  }
+
+  .bg-gray-50 {
+    background-color: var(--card);
+  }
+
+  .bg-gray-100 {
+    background-color: var(--brand-highlight);
+  }
+
+  .bg-white {
+    background-color: var(--background);
+  }
+
+  .text-gray-900,
+  .text-gray-800,
+  .text-gray-700 {
+    color: var(--foreground);
+  }
+
+  .text-gray-600,
+  .text-gray-500,
+  .text-gray-400 {
+    color: var(--brand-text-muted);
+  }
+
+  .border-gray-300,
+  .border-gray-200,
+  .border-gray-100,
+  .border-gray-50 {
+    border-color: var(--brand-border);
+  }
+
+  .bg-blue-50,
+  .bg-blue-100 {
+    background-color: var(--brand-highlight);
+  }
+
+  .text-blue-700,
+  .text-blue-600 {
+    color: var(--brand-secondary);
+  }
+
+  .border-blue-600,
+  .border-blue-500,
+  .border-blue-300,
+  .border-blue-200,
+  .border-blue-100 {
+    border-color: var(--brand-secondary);
+  }
+
+  .text-amber-700,
+  .text-amber-600,
+  .text-amber-500,
+  .text-amber-400,
+  .text-amber-300,
+  .text-amber-100 {
+    color: var(--brand-secondary);
+  }
+
+  .bg-amber-600,
+  .bg-amber-500,
+  .bg-amber-100 {
+    background-color: var(--brand-secondary);
+  }
+
+  .border-amber-500,
+  .border-amber-400,
+  .border-amber-300 {
+    border-color: var(--brand-secondary);
+  }
+
+  /* Gold CTA colors */
+  .bg-brand-gold {
+    background-color: var(--brand-gold);
+  }
+
+  .text-brand-gold {
+    color: var(--brand-gold);
+  }
+
+  .border-brand-gold {
+    border-color: var(--brand-gold);
+  }
+
+  .hover-bg-brand-gold:hover {
+    background-color: var(--brand-gold-hover);
+  }
+
+  /* Mid surface */
+  .bg-brand-surface-mid {
+    background-color: var(--brand-surface-mid);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /**
+  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  */
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  a,
+  button,
+  [role="button"],
+  label[for],
+  summary,
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    cursor: not-allowed;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+}

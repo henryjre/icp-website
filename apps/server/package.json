@@ -1,0 +1,40 @@
+{
+  "name": "@icp/server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "prisma:generate": "tsx src/scripts/prisma.ts generate",
+    "prisma:migrate": "tsx src/scripts/prisma.ts migrate dev",
+    "seed:admin": "tsx src/scripts/seedAdmin.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.887.0",
+    "@aws-sdk/s3-request-presigner": "3.887.0",
+    "@icp/shared": "1.0.0",
+    "@prisma/client": "6.16.2",
+    "bcryptjs": "2.4.3",
+    "cors": "2.8.5",
+    "dotenv": "16.6.1",
+    "express": "4.21.2",
+    "jsonwebtoken": "9.0.2",
+    "morgan": "1.10.0",
+    "nodemailer": "7.0.5",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "2.4.6",
+    "@types/cors": "2.8.19",
+    "@types/express": "4.17.23",
+    "@types/jsonwebtoken": "9.0.10",
+    "@types/morgan": "1.9.9",
+    "@types/node": "22.18.1",
+    "@types/nodemailer": "7.0.2",
+    "prisma": "6.16.2",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2"
+  }
+}
