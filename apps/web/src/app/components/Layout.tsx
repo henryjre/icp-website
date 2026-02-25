@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from "react";
-import { Outlet, NavLink, useLocation, useNavigate, useNavigation } from "react-router";
+import { Outlet, NavLink, ScrollRestoration, useLocation, useNavigate, useNavigation } from "react-router";
 import { Menu, X, Phone, Mail, MapPin, ChevronUp, LogOut, Shield } from "lucide-react";
 import type { UserDTO } from "@icp/shared";
 import { apiClient } from "../lib/api/client";
@@ -259,6 +259,7 @@ export function Layout() {
         <div className={`h-0.5 bg-brand-primary transition-opacity duration-200 ${isNavigating ? "opacity-100" : "opacity-0"}`} />
       </header>
 
+      <ScrollRestoration />
       <main className="flex-1">
         <Outlet />
       </main>

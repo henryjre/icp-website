@@ -332,7 +332,7 @@ export function UsersAdmin() {
                         {user.status === "Active" && (
                           <button
                             onClick={() => void updateRole(user.id, selectedRoleByUser[user.id] ?? (user.role as Role ?? "client"))}
-                            className="px-3 py-1.5 rounded-md bg-brand-highlight0 text-white text-xs"
+                            className="px-3 py-1.5 rounded-md bg-brand-primary text-white text-xs"
                           >
                             Change Role
                           </button>
@@ -422,7 +422,7 @@ export function UsersAdmin() {
                       </div>
                       <div className="text-xs text-gray-500 mt-1">Expires: {invite.expiresAt ? new Date(invite.expiresAt).toLocaleString() : "No expiry"}</div>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <button onClick={() => void copyInvite(invite.code)} className="px-3 py-1.5 rounded-md bg-brand-highlight0 text-white text-xs">Copy Link</button>
+                        <button onClick={() => void copyInvite(invite.code)} className="px-3 py-1.5 rounded-md bg-brand-primary text-white text-xs">Copy Link</button>
                         <button onClick={() => void sendInvite(invite.id)} className="px-3 py-1.5 rounded-md bg-green-500 text-white text-xs">Send Email</button>
                         <button onClick={() => void toggleInviteArchive(invite)} className="px-3 py-1.5 rounded-md bg-gray-600 text-white text-xs">
                           {invite.status === "Archived" ? "Unarchive" : "Archive"}
