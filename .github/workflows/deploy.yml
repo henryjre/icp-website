@@ -1,0 +1,66 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build --workspace @icp/shared
+
+      - name: Build web
+        run: npm run build --workspace @icp/web
+
+      - name: Build server
+        run: npm run build --workspace @icp/server
+
+      - name: Deploy to droplet via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/icp-website
+
+            echo "--- Pulling latest code ---"
+            git pull origin main
+
+            echo "--- Installing dependencies ---"
+            npm ci --omit=dev
+
+            echo "--- Building shared package ---"
+            npm run build --workspace @icp/shared
+
+            echo "--- Building server ---"
+            npm run build --workspace @icp/server
+
+            echo "--- Building web ---"
+            npm run build --workspace @icp/web
+
+            echo "--- Running Prisma migrations ---"
+            npm run prisma:migrate --workspace @icp/server
+
+            echo "--- Reloading PM2 process ---"
+            pm2 reload icp-server --update-env
+
+            echo "--- Done ---"
