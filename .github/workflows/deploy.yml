@@ -27,7 +27,7 @@ jobs:
         run: npm run build --workspace @icp/shared
 
       - name: Generate Prisma client
-        run: npm run prisma:generate --workspace @icp/server
+        run: npx prisma generate --schema=apps/server/prisma/schema.prisma
 
       - name: Build web
         run: npm run build --workspace @icp/web
