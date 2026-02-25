@@ -49,10 +49,13 @@ jobs:
             git pull origin main
 
             echo "--- Installing dependencies ---"
-            npm ci --omit=dev
+            npm ci
 
             echo "--- Building shared package ---"
             npm run build --workspace @icp/shared
+
+            echo "--- Generating Prisma client ---"
+            npx prisma generate --schema=apps/server/prisma/schema.prisma
 
             echo "--- Building server ---"
             npm run build --workspace @icp/server
