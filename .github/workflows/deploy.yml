@@ -30,6 +30,10 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm --filter @icp/server run prisma:generate
+        env:
+          # Client generation validates the URL format but does not access the database.
+          # Production migrations run on the droplet with its real environment values.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/icp_website?schema=public
 
       - name: Build web
         run: pnpm --filter @icp/web run build
