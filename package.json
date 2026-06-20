@@ -7,12 +7,12 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:web\" \"npm run dev:server\"",
-    "dev:web": "npm run dev --workspace @icp/web",
-    "dev:server": "npm run dev --workspace @icp/server",
-    "build": "npm run build:web && npm run build:server",
-    "build:web": "npm run build --workspace @icp/web",
-    "build:server": "npm run build --workspace @icp/server"
+    "dev": "concurrently \"pnpm run dev:web\" \"pnpm run dev:server\"",
+    "dev:web": "pnpm --filter @icp/web run dev",
+    "dev:server": "pnpm --filter @icp/server run dev",
+    "build": "pnpm --filter @icp/web run build && pnpm --filter @icp/server run build",
+    "build:web": "pnpm --filter @icp/web run build",
+    "build:server": "pnpm --filter @icp/server run build"
   },
   "devDependencies": {
     "concurrently": "9.2.1"

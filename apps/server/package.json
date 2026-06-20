@@ -9,12 +9,14 @@
     "start": "node dist/index.js",
     "prisma:generate": "tsx src/scripts/prisma.ts generate",
     "prisma:migrate": "tsx src/scripts/prisma.ts migrate dev",
+    "prisma:setup": "tsx src/scripts/prisma.ts generate && tsx src/scripts/prisma.ts migrate dev",
+    "prisma:setup:prod": "tsx src/scripts/prisma.ts generate && tsx src/scripts/prisma.ts migrate deploy",
     "seed:admin": "tsx src/scripts/seedAdmin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.887.0",
     "@aws-sdk/s3-request-presigner": "3.887.0",
-    "@icp/shared": "1.0.0",
+    "@icp/shared": "workspace:*",
     "@prisma/client": "6.16.2",
     "bcryptjs": "2.4.3",
     "cors": "2.8.5",
