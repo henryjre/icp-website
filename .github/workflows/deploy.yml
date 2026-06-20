@@ -5,6 +5,13 @@ on:
     branches:
       - main
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Build & Deploy
@@ -13,6 +20,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate zero-downtime migrations
+        run: |
+          node --test scripts/check-zero-downtime-migrations.test.mjs
+          bash scripts/check-zero-downtime-migrations.sh "${{ github.event.before }}" "${{ github.sha }}"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -43,30 +57,26 @@ jobs:
 
       - name: Deploy to droplet via SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          RELEASE_ID: ${{ github.sha }}-${{ github.run_id }}
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
+          envs: COMMIT_SHA,RELEASE_ID
           script: |
-            set -e
-            cd /opt/icp-website
+            set -Eeuo pipefail
+            export DEPLOY_ROOT=/opt/icp-website
 
-            echo "--- Pulling latest code ---"
-            git pull origin main
+            if [ ! -d "$DEPLOY_ROOT/repo/.git" ]; then
+              echo "Zero-downtime layout is not initialized. Run scripts/bootstrap-zero-downtime.sh as root." >&2
+              exit 1
+            fi
 
-            echo "--- Installing dependencies ---"
-            pnpm install --frozen-lockfile
-
-            echo "--- Running Prisma setup ---"
-            pnpm --filter @icp/server run prisma:setup:prod
-
-            echo "--- Building server ---"
-            pnpm --filter @icp/server run build
-
-            echo "--- Building web ---"
-            pnpm --filter @icp/web run build
-
-            echo "--- Reloading PM2 process ---"
-            pm2 reload icp-server --update-env
-
-            echo "--- Done ---"
+            (
+              flock -n 9 || { echo "Another production deployment is active." >&2; exit 1; }
+              git -C "$DEPLOY_ROOT/repo" fetch --prune origin "$COMMIT_SHA"
+              git -C "$DEPLOY_ROOT/repo" checkout --detach --force "$COMMIT_SHA"
+              exec "$DEPLOY_ROOT/repo/scripts/deploy-production.sh" "$COMMIT_SHA" "$RELEASE_ID"
+            ) 9>"$DEPLOY_ROOT/.deploy.lock"

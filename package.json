@@ -13,7 +13,8 @@
     "dev:server": "pnpm --filter @icp/server run dev",
     "build": "pnpm --filter @icp/web run build && pnpm --filter @icp/server run build",
     "build:web": "pnpm --filter @icp/web run build",
-    "build:server": "pnpm --filter @icp/server run build"
+    "build:server": "pnpm --filter @icp/server run build",
+    "test:migrations": "node --test scripts/check-zero-downtime-migrations.test.mjs"
   },
   "devDependencies": {
     "concurrently": "9.2.1"

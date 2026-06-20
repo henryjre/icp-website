@@ -4,6 +4,7 @@ import { requestLogger } from "./middleware/requestLogger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { apiRouter } from "./routes.js";
 import { shortLinksRouter } from "./modules/elements/shortLinks.js";
+import { prisma } from "./lib/prisma.js";
 
 export function createApp() {
   const app = express();
@@ -14,6 +15,15 @@ export function createApp() {
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true });
+  });
+
+  app.get("/health/ready", async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.json({ ok: true });
+    } catch {
+      res.status(503).json({ ok: false });
+    }
   });
 
   // Public short QR links: /e/:token
