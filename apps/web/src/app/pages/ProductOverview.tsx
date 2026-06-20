@@ -1,5 +1,19 @@
 import { useState } from "react";
 import { Clock, CheckCircle2, Construction, Fence, ArrowDownToLine, BrickWall } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+  fadeUpVariants,
+  heroContainerVariants,
+  heroItemVariants,
+  imageRevealVariants,
+  slideFromLeftVariants,
+  slideFromRightVariants,
+  staggerContainerVariants,
+  staggerChildVariants,
+  transitionBase,
+  transitionHover,
+  VIEWPORT,
+} from "../lib/animations";
 
 const concreteHeroImg = "https://images.unsplash.com/photo-1764856601179-dfeca7b37e4c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25jcmV0ZSUyMHBvdXJpbmclMjBjb25zdHJ1Y3Rpb24lMjB3b3JrZXJzfGVufDF8fHx8MTc3MTg0NzQzNHww&ixlib=rb-4.1.0&q=80&w=1080";
 const truckImg = "https://images.unsplash.com/photo-1621463677998-1a90bcbaca94?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWFkeSUyMG1peCUyMGNvbmNyZXRlJTIwdHJ1Y2slMjBkZWxpdmVyeXxlbnwxfHx8fDE3NzE4NDc0MzJ8MA&ixlib=rb-4.1.0&q=80&w=1080";
@@ -124,46 +138,17 @@ const otherProducts = [
   },
 ];
 
-const rawMaterials = [
-//   {
-//     name: "Coarse Aggregate (Crushed Stone)",
-//     origin: "Quarried Locally",
-//     standard: "ASTM C33",
-//     role: "Structural skeleton providing bulk, strength, and stability.",
-//     color: "border-brand-accent-light",
-//   },
-//   {
-//     name: "Fine Aggregate (Sand)",
-//     origin: "River / Manufactured Sand",
-//     standard: "ASTM C33",
-//     role: "Fills voids between coarse aggregate, improves workability.",
-//     color: "border-yellow-300",
-//   },
-//   {
-//     name: "Water",
-//     origin: "Treated Process Water",
-//     standard: "ASTM C1602",
-//     role: "Triggers hydration reaction with cement for hardening.",
-//     color: "border-brand-secondary",
-//   },
-//   {
-//     name: "Admixtures",
-//     origin: "Chemical Suppliers",
-//     standard: "ASTM C494",
-//     role: "Modifies workability, set time, strength, and durability.",
-//     color: "border-green-300",
-//   },
-//   {
-//     name: "Fly Ash / GGBS",
-//     origin: "Industrial By-Products",
-//     standard: "ASTM C618 / C989",
-//     role: "Supplementary cementitious material enhancing sustainability.",
-//     color: "border-purple-300",
-//   },
-];
+const rawMaterials: { name: string; origin: string; standard: string; role: string; color: string }[] = [];
+
+const expandVariants = {
+  hidden: { opacity: 0, height: 0 },
+  visible: { opacity: 1, height: "auto", transition: { duration: 0.25 } },
+  exit: { opacity: 0, height: 0, transition: { duration: 0.2 } },
+} as const;
 
 export function ProductOverview() {
   const [activeMix, setActiveMix] = useState<string | null>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   return (
     <div>
@@ -172,20 +157,43 @@ export function ProductOverview() {
         <img src={concreteHeroImg} alt="Concrete pouring" className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#02126B] via-[#02126B]/65 to-transparent" />
         <div className="relative max-w-[80rem] mx-auto px-6 pb-14 w-full">
-          <span className="text-brand-highlight text-sm tracking-widest uppercase">Product Overview</span>
-          <h1 className="text-white mt-2" style={{ fontSize: "2.8rem", fontWeight: 800 }}>
-            Excelcrete Redimix
-          </h1>
-          <p className="text-gray-300 mt-2 max-w-xl">
-            Quality ready-mix concrete — batched to specification, delivered fresh to your site.
-          </p>
+          <motion.div
+            variants={shouldReduceMotion ? undefined : heroContainerVariants}
+            initial="hidden"
+            animate="animate"
+          >
+            <motion.span
+              className="text-brand-highlight text-sm tracking-widest uppercase"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              Product Overview
+            </motion.span>
+            <motion.h1
+              className="text-white mt-2"
+              style={{ fontSize: "2.8rem", fontWeight: 800 }}
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              Excelcrete Redimix
+            </motion.h1>
+            <motion.p
+              className="text-gray-300 mt-2 max-w-xl"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              Quality ready-mix concrete — batched to specification, delivered fresh to your site.
+            </motion.p>
+          </motion.div>
         </div>
       </section>
 
-      {/* Product Description */}
+      {/* Product Description — two-column split */}
       <section className="py-20 bg-white">
         <div className="max-w-[80rem] mx-auto px-6 grid md:grid-cols-2 gap-14 items-center">
-          <div>
+          <motion.div
+            variants={shouldReduceMotion ? undefined : slideFromLeftVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             <span className="text-brand-accent text-sm tracking-widest uppercase">What Is RMC?</span>
             <h2 className="text-brand-primary mt-2 mb-5" style={{ fontSize: "2rem", fontWeight: 800 }}>
               Ready Mix Concrete
@@ -212,23 +220,42 @@ export function ProductOverview() {
                 </li>
               ))}
             </ul>
-          </div>
-          <div>
+          </motion.div>
+
+          <motion.div
+            variants={shouldReduceMotion ? undefined : imageRevealVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             <img src={truckImg} alt="Ready mix truck" className="w-full h-[380px] object-cover rounded-xl shadow-lg" />
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Brief Story */}
+      {/* Why Choose */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-[80rem] mx-auto px-6">
-          <div className="max-w-3xl mx-auto text-center">
+          <motion.div
+            className="max-w-3xl mx-auto text-center"
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             <span className="text-brand-accent text-sm tracking-widest uppercase">About The Product</span>
             <h2 className="text-brand-primary mt-2 mb-6" style={{ fontSize: "2rem", fontWeight: 800 }}>
               Why Choose Ready Mix Concrete
             </h2>
-          </div>
-          <div className="max-w-4xl mx-auto grid md:grid-cols-3 gap-6">
+          </motion.div>
+
+          <motion.div
+            className="max-w-4xl mx-auto grid md:grid-cols-3 gap-6"
+            variants={shouldReduceMotion ? undefined : staggerContainerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             {[
               {
                 label: "What It Is",
@@ -243,19 +270,31 @@ export function ProductOverview() {
                 text: "Our plant is strategically located in the heart of San Jose Del Monte to cater within a radius of 30km. We value our client's interest to serve them promptly and on time with quality concrete. It offers enhanced durability and strength, ensuring long-lasting structural integrity.",
               },
             ].map((s) => (
-              <div key={s.label} className="bg-white rounded-xl p-7 shadow-sm border border-gray-100">
+              <motion.div
+                key={s.label}
+                className="bg-white rounded-xl p-7 shadow-sm border border-gray-100"
+                variants={shouldReduceMotion ? undefined : staggerChildVariants}
+                whileHover={shouldReduceMotion ? undefined : { y: -4 }}
+                transition={transitionHover}
+              >
                 <div className="text-brand-accent text-xs tracking-widest uppercase mb-2">{s.label}</div>
                 <p className="text-gray-600 text-sm leading-relaxed">{s.text}</p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Product Design Mix */}
+      {/* Design Mix */}
       <section className="py-20 bg-white">
         <div className="max-w-[80rem] mx-auto px-6">
-          <div className="text-center mb-12">
+          <motion.div
+            className="text-center mb-12"
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             <span className="text-brand-accent text-sm tracking-widest uppercase">Specifications</span>
             <h2 className="text-brand-primary mt-2" style={{ fontSize: "2rem", fontWeight: 800 }}>
               Product Design Mix
@@ -263,17 +302,23 @@ export function ProductOverview() {
             <p className="text-gray-500 mt-3 max-w-xl mx-auto text-sm">
               Excelcrete Redimix offers a full range of concrete grades to meet the demands of residential, commercial, and heavy infrastructure projects.
             </p>
-          </div>
+          </motion.div>
 
-          {/* Mix Cards */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <motion.div
+            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"
+            variants={shouldReduceMotion ? undefined : staggerContainerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             {designMixes.map((mix) => (
-              <div
+              <motion.div
                 key={mix.grade}
                 onClick={() => setActiveMix(activeMix === mix.grade ? null : mix.grade)}
-                className={`rounded-xl border-2 p-6 cursor-pointer transition-all duration-200 ${mix.color} ${
-                  activeMix === mix.grade ? "shadow-lg scale-[1.02]" : "hover:shadow-md"
-                }`}
+                className={`rounded-xl border-2 p-6 cursor-pointer transition-colors duration-200 ${mix.color} ${activeMix === mix.grade ? "shadow-lg" : "hover:shadow-md"}`}
+                variants={shouldReduceMotion ? undefined : staggerChildVariants}
+                animate={shouldReduceMotion ? {} : { scale: activeMix === mix.grade ? 1.02 : 1 }}
+                transition={transitionBase}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -296,26 +341,52 @@ export function ProductOverview() {
                     <span style={{ fontWeight: 600 }}>{mix.waterCement}</span>
                   </div>
                 </div>
-                {activeMix === mix.grade && (
-                  <div className="mt-4 pt-4 border-t border-current/10">
-                    <p className="text-gray-600 text-sm">
-                      <span style={{ fontWeight: 600 }}>Application:</span> {mix.use}
-                    </p>
-                  </div>
-                )}
-                {activeMix !== mix.grade && (
-                  <p className="mt-3 text-xs text-gray-400">{mix.use}</p>
-                )}
-              </div>
+
+                <AnimatePresence initial={false}>
+                  {activeMix === mix.grade ? (
+                    <motion.div
+                      key="expanded"
+                      variants={shouldReduceMotion ? undefined : expandVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 pt-4 border-t border-current/10">
+                        <p className="text-gray-600 text-sm">
+                          <span style={{ fontWeight: 600 }}>Application:</span> {mix.use}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.p
+                      key="collapsed"
+                      variants={shouldReduceMotion ? undefined : expandVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      className="mt-3 text-xs text-gray-400 overflow-hidden"
+                    >
+                      {mix.use}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Curing Time */}
+      {/* Curing Time — sequential delay */}
       <section className="py-20 bg-brand-primary">
         <div className="max-w-[80rem] mx-auto px-6">
-          <div className="text-center mb-14">
+          <motion.div
+            className="text-center mb-14"
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             <span className="text-brand-accent text-sm tracking-widest uppercase">Technical Guide</span>
             <h2 className="text-white mt-2" style={{ fontSize: "2rem", fontWeight: 800 }}>
               Curing Time
@@ -323,17 +394,21 @@ export function ProductOverview() {
             <p className="text-white/60 mt-3 max-w-xl mx-auto text-sm">
               Proper curing is critical to achieving design strength. The timeline below represents typical behavior under standard conditions (20°C, moderate humidity).
             </p>
-          </div>
+          </motion.div>
 
-          {/* Timeline */}
           <div className="relative">
             <div className="hidden md:block absolute top-8 left-0 right-0 h-0.5 bg-white/10" />
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               {curingStages.map((stage, i) => (
-                <div key={stage.time} className="flex flex-col items-center text-center">
-                  <div className={`relative w-16 h-16 rounded-full flex flex-col items-center justify-center mb-4 z-10
-                    ${i === curingStages.length - 1 ? "bg-brand-accent" : "bg-white/10 border border-white/20"}
-                  `}>
+                <motion.div
+                  key={stage.time}
+                  className="flex flex-col items-center text-center"
+                  initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={VIEWPORT}
+                  transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.4, delay: i * 0.08 }}
+                >
+                  <div className={`relative w-16 h-16 rounded-full flex flex-col items-center justify-center mb-4 z-10 ${i === curingStages.length - 1 ? "bg-brand-accent" : "bg-white/10 border border-white/20"}`}>
                     <span className="text-xl">{stage.icon}</span>
                   </div>
                   <div className={`text-sm mb-1 ${i === curingStages.length - 1 ? "text-brand-highlight" : "text-white"}`} style={{ fontWeight: 700 }}>
@@ -341,12 +416,18 @@ export function ProductOverview() {
                   </div>
                   <div className="text-brand-secondary opacity-70 text-xs mb-2">{stage.label}</div>
                   <p className="text-white/60 text-xs leading-relaxed">{stage.desc}</p>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
 
-          <div className="mt-12 bg-white/5 border border-white/10 rounded-xl p-6">
+          <motion.div
+            className="mt-12 bg-white/5 border border-white/10 rounded-xl p-6"
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             <h4 className="text-white mb-3" style={{ fontWeight: 700 }}>Important Curing Notes</h4>
             <div className="grid md:grid-cols-2 gap-3">
               {[
@@ -361,14 +442,20 @@ export function ProductOverview() {
                 </div>
               ))}
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Other Products */}
       <section className="py-20 bg-white">
         <div className="max-w-[80rem] mx-auto px-6">
-          <div className="text-center mb-12">
+          <motion.div
+            className="text-center mb-12"
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             <span className="text-brand-accent text-sm tracking-widest uppercase">More Solutions</span>
             <h2 className="text-brand-primary mt-2" style={{ fontSize: "2rem", fontWeight: 800 }}>
               Other Products
@@ -378,26 +465,44 @@ export function ProductOverview() {
               <strong className="text-brand-primary">ICP-FNET Engineering</strong> — will produce, supply, and deliver
               pre-casted and pre-stressed concrete products to meet a wide range of infrastructure needs.
             </p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          </motion.div>
+
+          <motion.div
+            className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            variants={shouldReduceMotion ? undefined : staggerContainerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             {otherProducts.map((p) => (
-              <div key={p.name} className="border border-gray-100 rounded-xl p-6 hover:shadow-md transition group">
+              <motion.div
+                key={p.name}
+                className="border border-gray-100 rounded-xl p-6 group"
+                variants={shouldReduceMotion ? undefined : staggerChildVariants}
+                whileHover={shouldReduceMotion ? undefined : { y: -4, boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }}
+                transition={transitionHover}
+              >
                 <div className="w-11 h-11 bg-brand-soft rounded-xl flex items-center justify-center mb-4 group-hover-bg-brand-primary transition">
                   <p.icon className="w-5 h-5 text-brand-accent group-hover:text-brand-primary transition" />
                 </div>
                 <h4 className="text-brand-primary mb-2" style={{ fontWeight: 700 }}>{p.name}</h4>
                 <p className="text-gray-500 text-sm leading-relaxed">{p.desc}</p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
-      {/* Raw Materials */}
+      {/* Raw Materials — two-column with image */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-[80rem] mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-14 items-center">
-            <div>
+            <motion.div
+              variants={shouldReduceMotion ? undefined : slideFromLeftVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={VIEWPORT}
+            >
               <span className="text-brand-accent text-sm tracking-widest uppercase">Ingredients</span>
               <h2 className="text-brand-primary mt-2 mb-4" style={{ fontSize: "2rem", fontWeight: 800 }}>
                 Raw Materials
@@ -420,14 +525,20 @@ export function ProductOverview() {
                   </div>
                 ))}
               </div>
-            </div>
-            <div>
+            </motion.div>
+
+            <motion.div
+              variants={shouldReduceMotion ? undefined : slideFromRightVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={VIEWPORT}
+            >
               <img
                 src={rawMaterialsImg}
                 alt="Raw materials"
                 className="w-full h-[560px] object-cover rounded-xl shadow-lg"
               />
-            </div>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -435,32 +546,46 @@ export function ProductOverview() {
       {/* Suppliers */}
       <section className="py-16 bg-white border-t border-gray-100">
         <div className="max-w-[80rem] mx-auto px-6">
-          <div className="text-center mb-10">
+          <motion.div
+            className="text-center mb-10"
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             <span className="text-brand-accent text-sm tracking-widest uppercase">Trusted Partners</span>
             <h2 className="text-brand-primary mt-2" style={{ fontSize: "2rem", fontWeight: 800 }}>
               Our Suppliers
             </h2>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-8">
+          </motion.div>
+
+          <motion.div
+            className="flex flex-wrap items-center justify-center gap-8"
+            variants={shouldReduceMotion ? undefined : staggerContainerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             {[
               { src: "/suppliers/logo-eagle.webp", alt: "Eagle Cement" },
               { src: "/suppliers/logo-union.webp", alt: "Union Cement" },
               { src: "/suppliers/logo-republic.webp", alt: "Republic Cement" },
               { src: "/suppliers/logo-koinonia.webp", alt: "Koinonia" },
             ].map((s) => (
-              <div key={s.alt} className="flex items-center justify-center p-6 rounded-xl border border-gray-100 hover:border-brand-secondary/30 hover:shadow-sm transition bg-white" style={{ width: 220, height: 120 }}>
+              <motion.div
+                key={s.alt}
+                className="flex items-center justify-center p-6 rounded-xl border border-gray-100 hover:border-brand-secondary/30 hover:shadow-sm transition bg-white"
+                style={{ width: 220, height: 120 }}
+                variants={shouldReduceMotion ? undefined : staggerChildVariants}
+                whileHover={shouldReduceMotion ? undefined : { scale: 1.03 }}
+                transition={transitionHover}
+              >
                 <img src={s.src} alt={s.alt} className="max-h-full max-w-full object-contain" loading="lazy" />
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
     </div>
   );
 }
-
-
-
-
-
-

@@ -1,5 +1,6 @@
 ﻿import { useState, useEffect } from "react";
 import { Outlet, NavLink, ScrollRestoration, useLocation, useNavigate, useNavigation } from "react-router";
+import { PageTransition } from "./PageTransition";
 import { Menu, X, Phone, Mail, MapPin, ChevronUp, LogOut, Shield } from "lucide-react";
 import type { UserDTO } from "@icp/shared";
 import { apiClient } from "../lib/api/client";
@@ -97,7 +98,6 @@ export function Layout() {
     setMenuOpen(false);
     setAdminOpen(false);
     setCurrentUser(apiClient.getStoredUser());
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }, [location.pathname]);
 
   const handleLogout = async () => {
@@ -107,7 +107,7 @@ export function Layout() {
   };
 
   const handleQuickLinkClick = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0 });
   };
 
   return (
@@ -261,7 +261,9 @@ export function Layout() {
 
       <ScrollRestoration />
       <main className="flex-1">
-        <Outlet />
+        <PageTransition>
+          <Outlet />
+        </PageTransition>
       </main>
 
       <footer className="bg-brand-primary text-white/85">

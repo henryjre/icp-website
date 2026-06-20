@@ -2,7 +2,15 @@ import { Suspense, useState } from "react";
 import { Await, NavLink, useLoaderData } from "react-router";
 import { MapPin, Calendar, CheckCircle2, Clock, ArrowRight, Search, Layers } from "lucide-react";
 import type { ProjectListItemDTO } from "@icp/shared";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Skeleton } from "../components/ui/skeleton";
+import {
+  heroContainerVariants,
+  heroItemVariants,
+  staggerChildVariants,
+  transitionFast,
+  VIEWPORT,
+} from "../lib/animations";
 
 function ProjectCardSkeleton() {
   return (
@@ -32,20 +40,41 @@ function ProjectsGridSkeleton() {
 
 export function Projects() {
   const data = useLoaderData() as { projects: Promise<ProjectListItemDTO[]> };
+  const shouldReduceMotion = useReducedMotion();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
   return (
     <div>
+      {/* Hero */}
       <section className="bg-brand-primary py-20">
         <div className="max-w-[80rem] mx-auto px-6">
-          <span className="text-brand-accent text-sm tracking-widest uppercase">Our Portfolio</span>
-          <h1 className="text-white mt-2 mb-4" style={{ fontSize: "2.8rem", fontWeight: 800 }}>
-            Projects
-          </h1>
-          <p className="text-white/60 max-w-2xl">
-            From landmark bridges to roadworks - explore our portfolio of completed and ongoing infrastructure and building projects.
-          </p>
+          <motion.div
+            variants={shouldReduceMotion ? undefined : heroContainerVariants}
+            initial="hidden"
+            animate="animate"
+          >
+            <motion.span
+              className="text-brand-accent text-sm tracking-widest uppercase"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              Our Portfolio
+            </motion.span>
+            <motion.h1
+              className="text-white mt-2 mb-4"
+              style={{ fontSize: "2.8rem", fontWeight: 800 }}
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              Projects
+            </motion.h1>
+            <motion.p
+              className="text-white/60 max-w-2xl"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              From landmark bridges to roadworks - explore our portfolio of completed and ongoing infrastructure and building projects.
+            </motion.p>
+          </motion.div>
+
           <div className="mt-8 grid grid-cols-3 gap-4 max-w-[42rem] mx-auto sm:mx-0">
             <Suspense
               fallback={["Total Projects", "Completed", "Ongoing"].map((label) => (
@@ -87,7 +116,13 @@ export function Projects() {
         </div>
       </section>
 
-      <section className="bg-white border-b border-gray-100 py-5 sticky top-[73px] z-40">
+      {/* Filter bar — one-time entrance */}
+      <motion.section
+        className="bg-white border-b border-gray-100 py-5 sticky top-[73px] z-40"
+        initial={shouldReduceMotion ? false : { opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={transitionFast}
+      >
         <div className="max-w-[80rem] mx-auto px-6 flex flex-col sm:flex-row gap-4 flex-wrap items-center sm:items-center">
           <div className="relative w-full sm:flex-1 sm:min-w-[220px]">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -118,8 +153,9 @@ export function Projects() {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
+      {/* Projects grid */}
       <section className="py-14 bg-brand-card">
         <div className="max-w-[80rem] mx-auto px-6">
           <Suspense fallback={<ProjectsGridSkeleton />}>
@@ -135,72 +171,92 @@ export function Projects() {
                 });
 
                 return filtered.length === 0 ? (
-                  <div className="text-center py-20 text-gray-400">No projects found.</div>
+                  <motion.div
+                    className="text-center py-20 text-gray-400"
+                    initial={shouldReduceMotion ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    viewport={VIEWPORT}
+                  >
+                    No projects found.
+                  </motion.div>
                 ) : (
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7">
-                    {filtered.map((project) => (
-                      <NavLink
-                        key={project.id}
-                        to={`/projects/${project.projectCode}`}
-                        className="group bg-brand-surface rounded-xl overflow-hidden shadow-sm border border-brand-border hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
-                      >
-                        <div className="relative h-52 overflow-hidden">
-                          <img
-                            src={project.thumbnail}
-                            alt={project.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                          <div className="absolute top-3 right-3">
-                            <span
-                              className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full ${project.status === "Completed"
-                                  ? "bg-green-500/90 text-white"
-                                  : "bg-brand-secondary/90 text-white"
-                                }`}
-                              style={{ fontWeight: 600 }}
-                            >
-                              {project.status === "Completed" ? (
-                                <CheckCircle2 className="w-3 h-3" />
-                              ) : (
-                                <Clock className="w-3 h-3" />
-                              )}
-                              {project.status}
-                            </span>
-                          </div>
-                          <div className="absolute bottom-3 left-4 right-4">
-                            <h3 className="text-white" style={{ fontWeight: 700, fontSize: "1rem", lineHeight: 1.3 }}>
-                              {project.name}
-                            </h3>
-                          </div>
-                        </div>
-
-                        <div className="p-5">
-                          <div className="flex items-start gap-1.5 text-gray-500 text-sm mb-2">
-                            <MapPin className="w-3.5 h-3.5 text-brand-secondary shrink-0 mt-0.5" />
-                            {project.location}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-4">
-                            <Calendar className="w-3.5 h-3.5 text-brand-secondary shrink-0" />
-                            Started: {new Date(project.dateStarted).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                            {project.completionDate && (
-                              <span className="text-gray-400 ml-1">
-                                Done: {new Date(project.completionDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                            <div className="flex items-center gap-1.5 text-gray-500 text-xs">
-                              <Layers className="w-3.5 h-3.5 text-brand-secondary" />
-                              {project.elements.length} Precast Elements
+                  <motion.div
+                    layout
+                    className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7"
+                  >
+                    <AnimatePresence mode="popLayout">
+                      {filtered.map((project) => (
+                        <motion.div
+                          key={project.id}
+                          layout
+                          variants={shouldReduceMotion ? undefined : staggerChildVariants}
+                          initial="hidden"
+                          animate="visible"
+                          exit={shouldReduceMotion ? {} : { opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
+                        >
+                          <NavLink
+                            to={`/projects/${project.projectCode}`}
+                            className="group bg-brand-surface rounded-xl overflow-hidden shadow-sm border border-brand-border hover:shadow-xl hover:-translate-y-1 transition-all duration-300 block"
+                          >
+                            <div className="relative h-52 overflow-hidden">
+                              <img
+                                src={project.thumbnail}
+                                alt={project.name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                              <div className="absolute top-3 right-3">
+                                <span
+                                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full ${project.status === "Completed"
+                                      ? "bg-green-500/90 text-white"
+                                      : "bg-brand-secondary/90 text-white"
+                                    }`}
+                                  style={{ fontWeight: 600 }}
+                                >
+                                  {project.status === "Completed" ? (
+                                    <CheckCircle2 className="w-3 h-3" />
+                                  ) : (
+                                    <Clock className="w-3 h-3" />
+                                  )}
+                                  {project.status}
+                                </span>
+                              </div>
+                              <div className="absolute bottom-3 left-4 right-4">
+                                <h3 className="text-white" style={{ fontWeight: 700, fontSize: "1rem", lineHeight: 1.3 }}>
+                                  {project.name}
+                                </h3>
+                              </div>
                             </div>
-                            <span className="flex items-center gap-1 text-brand-secondary text-xs group-hover:gap-2 transition-all">
-                              View Details <ArrowRight className="w-3.5 h-3.5" />
-                            </span>
-                          </div>
-                        </div>
-                      </NavLink>
-                    ))}
-                  </div>
+
+                            <div className="p-5">
+                              <div className="flex items-start gap-1.5 text-gray-500 text-sm mb-2">
+                                <MapPin className="w-3.5 h-3.5 text-brand-secondary shrink-0 mt-0.5" />
+                                {project.location}
+                              </div>
+                              <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-4">
+                                <Calendar className="w-3.5 h-3.5 text-brand-secondary shrink-0" />
+                                Started: {new Date(project.dateStarted).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                                {project.completionDate && (
+                                  <span className="text-gray-400 ml-1">
+                                    Done: {new Date(project.completionDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                                <div className="flex items-center gap-1.5 text-gray-500 text-xs">
+                                  <Layers className="w-3.5 h-3.5 text-brand-secondary" />
+                                  {project.elements.length} Precast Elements
+                                </div>
+                                <span className="flex items-center gap-1 text-brand-secondary text-xs group-hover:gap-2 transition-all">
+                                  View Details <ArrowRight className="w-3.5 h-3.5" />
+                                </span>
+                              </div>
+                            </div>
+                          </NavLink>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </motion.div>
                 );
               }}
             </Await>

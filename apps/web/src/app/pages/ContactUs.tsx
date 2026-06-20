@@ -1,5 +1,17 @@
 import { useState } from "react";
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2, HardHat, Box } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import {
+  fadeUpVariants,
+  heroContainerVariants,
+  heroItemVariants,
+  scaleInVariants,
+  staggerContainerVariants,
+  staggerChildVariants,
+  transitionHover,
+  transitionFast,
+  VIEWPORT,
+} from "../lib/animations";
 
 const offices = [
   {
@@ -29,7 +41,18 @@ type FormData = {
   message: string;
 };
 
+const staggerForm = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.05, delayChildren: 0.1 } },
+} as const;
+
+const mapReveal = {
+  hidden: { opacity: 0, scale: 0.98 },
+  visible: { opacity: 1, scale: 1, transition: { duration: 0.5 } },
+} as const;
+
 export function ContactUs() {
+  const shouldReduceMotion = useReducedMotion();
   const [form, setForm] = useState<FormData>({
     name: "",
     company: "",
@@ -76,25 +99,55 @@ export function ContactUs() {
       {/* Hero */}
       <section className="bg-brand-primary py-20">
         <div className="max-w-[80rem] mx-auto px-6">
-          <span className="text-brand-accent text-sm tracking-widest uppercase">Get In Touch</span>
-          <h1 className="text-white mt-2 mb-4" style={{ fontSize: "2.8rem", fontWeight: 800 }}>
-            Contact Us
-          </h1>
-          <p className="text-white/60 max-w-xl">
-            Have a project inquiry, need a concrete delivery quote, or want to speak with our team? We'd love to hear from you.
-          </p>
+          <motion.div
+            variants={shouldReduceMotion ? undefined : heroContainerVariants}
+            initial="hidden"
+            animate="animate"
+          >
+            <motion.span
+              className="text-brand-accent text-sm tracking-widest uppercase"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              Get In Touch
+            </motion.span>
+            <motion.h1
+              className="text-white mt-2 mb-4"
+              style={{ fontSize: "2.8rem", fontWeight: 800 }}
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              Contact Us
+            </motion.h1>
+            <motion.p
+              className="text-white/60 max-w-xl"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              Have a project inquiry, need a concrete delivery quote, or want to speak with our team? We'd love to hear from you.
+            </motion.p>
+          </motion.div>
         </div>
       </section>
 
       {/* Contact Cards */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-[80rem] mx-auto px-6">
-          <div className="flex flex-col md:flex-row md:flex-wrap md:justify-center gap-6">
+          <motion.div
+            className="flex flex-col md:flex-row md:flex-wrap md:justify-center gap-6"
+            variants={shouldReduceMotion ? undefined : staggerContainerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             {offices.map((office) => {
               const isIcp = office.type === "icp";
               const iconColor = isIcp ? "text-brand-primary" : "text-brand-accent";
               return (
-                <div key={office.name} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 w-full md:w-auto md:min-w-[20rem] md:max-w-sm flex-1">
+                <motion.div
+                  key={office.name}
+                  className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 w-full md:w-auto md:min-w-[20rem] md:max-w-sm flex-1"
+                  variants={shouldReduceMotion ? undefined : staggerChildVariants}
+                  whileHover={shouldReduceMotion ? undefined : { y: -4 }}
+                  transition={transitionHover}
+                >
                   <div className="flex items-center gap-3 mb-4">
                     <div className={`w-9 h-9 rounded flex items-center justify-center ${isIcp ? "bg-brand-primary" : "bg-brand-accent"}`}>
                       {isIcp
@@ -122,10 +175,10 @@ export function ContactUs() {
                       {office.hours}
                     </li>
                   </ul>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -134,126 +187,130 @@ export function ContactUs() {
         <div className="max-w-[80rem] mx-auto px-6 grid md:grid-cols-2 gap-14">
           {/* Form */}
           <div>
-            <span className="text-brand-accent text-sm tracking-widest uppercase">Send a Message</span>
-            <h2 className="text-brand-primary mt-2 mb-6" style={{ fontSize: "1.8rem", fontWeight: 800 }}>
-              We'll Get Back to You
-            </h2>
+            <motion.div
+              variants={shouldReduceMotion ? undefined : fadeUpVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={VIEWPORT}
+            >
+              <span className="text-brand-accent text-sm tracking-widest uppercase">Send a Message</span>
+              <h2 className="text-brand-primary mt-2 mb-6" style={{ fontSize: "1.8rem", fontWeight: 800 }}>
+                We'll Get Back to You
+              </h2>
+            </motion.div>
 
-            {submitted ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center bg-brand-soft rounded-2xl border border-brand-accent-light">
-                <CheckCircle2 className="w-14 h-14 text-brand-accent mb-4" />
-                <h3 className="text-brand-primary mb-2" style={{ fontSize: "1.3rem", fontWeight: 700 }}>
-                  Message Sent!
-                </h3>
-                <p className="text-gray-500 text-sm max-w-xs">
-                  Thank you for reaching out. A member of our team will contact you within 1–2 business days.
-                </p>
-                <button
-                  onClick={() => { setSubmitted(false); setForm({ name: "", company: "", email: "", phone: "", subject: "General Inquiry", message: "" }); }}
-                  className="mt-6 text-brand-accent hover:text-brand-primary text-sm underline"
+            <AnimatePresence mode="wait">
+              {submitted ? (
+                <motion.div
+                  key="success"
+                  variants={shouldReduceMotion ? undefined : scaleInVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="hidden"
+                  className="flex flex-col items-center justify-center py-20 text-center bg-brand-soft rounded-2xl border border-brand-accent-light"
                 >
-                  Send another message
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Full Name *</label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={form.name}
-                      onChange={handleChange}
-                      required
-                      placeholder="Juan dela Cruz"
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Company / Organization</label>
-                    <input
-                      type="text"
-                      name="company"
-                      value={form.company}
-                      onChange={handleChange}
-                      placeholder="XYZ Builders Inc."
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Email Address *</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={form.email}
-                      onChange={handleChange}
-                      required
-                      placeholder="juan@example.com"
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Phone Number</label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={form.phone}
-                      onChange={handleChange}
-                      placeholder="+63 917 000 0000"
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Subject *</label>
-                  <select
-                    name="subject"
-                    value={form.subject}
-                    onChange={handleChange}
-                    className={inputClass}
+                  <CheckCircle2 className="w-14 h-14 text-brand-accent mb-4" />
+                  <h3 className="text-brand-primary mb-2" style={{ fontSize: "1.3rem", fontWeight: 700 }}>
+                    Message Sent!
+                  </h3>
+                  <p className="text-gray-500 text-sm max-w-xs">
+                    Thank you for reaching out. A member of our team will contact you within 1–2 business days.
+                  </p>
+                  <button
+                    onClick={() => { setSubmitted(false); setForm({ name: "", company: "", email: "", phone: "", subject: "General Inquiry", message: "" }); }}
+                    className="mt-6 text-brand-accent hover:text-brand-primary text-sm underline"
                   >
-                    <option>General Inquiry</option>
-                    <option>Ready Mix Concrete Quote</option>
-                    <option>Construction Project Inquiry</option>
-                    <option>Partnership / Supplier</option>
-
-                    <option>Other</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Message *</label>
-                  <textarea
-                    name="message"
-                    value={form.message}
-                    onChange={handleChange}
-                    required
-                    rows={5}
-                    placeholder="Tell us about your project, volume requirements, or inquiry..."
-                    className={inputClass + " resize-none"}
-                  />
-                </div>
-                {error && (
-                  <p className="text-red-500 text-sm text-center">{error}</p>
-                )}
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full flex items-center justify-center gap-2 bg-brand-accent hover-bg-brand-primary text-white py-3.5 rounded-xl transition disabled:opacity-60 disabled:cursor-not-allowed"
-                  style={{ fontWeight: 600 }}
+                    Send another message
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.form
+                  key="form"
+                  onSubmit={handleSubmit}
+                  variants={shouldReduceMotion ? undefined : staggerForm}
+                  initial="hidden"
+                  animate="visible"
+                  exit={{ opacity: 0, transition: { duration: 0.2 } }}
+                  className="space-y-4"
                 >
-                  <Send className="w-4 h-4" />
-                  {submitting ? "Sending…" : "Send Message"}
-                </button>
-              </form>
-            )}
+                  <motion.div
+                    className="grid sm:grid-cols-2 gap-4"
+                    variants={shouldReduceMotion ? undefined : fadeUpVariants}
+                  >
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Full Name *</label>
+                      <input type="text" name="name" value={form.name} onChange={handleChange} required placeholder="Juan dela Cruz" className={inputClass} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Company / Organization</label>
+                      <input type="text" name="company" value={form.company} onChange={handleChange} placeholder="XYZ Builders Inc." className={inputClass} />
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    className="grid sm:grid-cols-2 gap-4"
+                    variants={shouldReduceMotion ? undefined : fadeUpVariants}
+                  >
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Email Address *</label>
+                      <input type="email" name="email" value={form.email} onChange={handleChange} required placeholder="juan@example.com" className={inputClass} />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Phone Number</label>
+                      <input type="tel" name="phone" value={form.phone} onChange={handleChange} placeholder="+63 917 000 0000" className={inputClass} />
+                    </div>
+                  </motion.div>
+
+                  <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
+                    <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Subject *</label>
+                    <select name="subject" value={form.subject} onChange={handleChange} className={inputClass}>
+                      <option>General Inquiry</option>
+                      <option>Ready Mix Concrete Quote</option>
+                      <option>Construction Project Inquiry</option>
+                      <option>Partnership / Supplier</option>
+                      <option>Other</option>
+                    </select>
+                  </motion.div>
+
+                  <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
+                    <label className="block text-xs text-gray-500 mb-1.5" style={{ fontWeight: 600 }}>Message *</label>
+                    <textarea name="message" value={form.message} onChange={handleChange} required rows={5} placeholder="Tell us about your project, volume requirements, or inquiry..." className={inputClass + " resize-none"} />
+                  </motion.div>
+
+                  <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
+                    {error && <p className="text-red-500 text-sm text-center mb-3">{error}</p>}
+                    <motion.button
+                      type="submit"
+                      disabled={submitting}
+                      className="w-full flex items-center justify-center gap-2 bg-brand-accent hover-bg-brand-primary text-white py-3.5 rounded-xl transition disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{ fontWeight: 600 }}
+                      animate={
+                        shouldReduceMotion ? {} : submitting ? { scale: [1, 0.97, 1] } : { scale: 1 }
+                      }
+                      transition={
+                        submitting && !shouldReduceMotion
+                          ? { duration: 0.8, repeat: Infinity, ease: "easeInOut" }
+                          : transitionFast
+                      }
+                    >
+                      <Send className="w-4 h-4" />
+                      {submitting ? "Sending…" : "Send Message"}
+                    </motion.button>
+                  </motion.div>
+                </motion.form>
+              )}
+            </AnimatePresence>
           </div>
 
-          {/* Map Placeholder + Info */}
+          {/* Map + Info */}
           <div className="flex flex-col gap-6">
-            <div className="rounded-xl overflow-hidden border border-gray-100 shadow-sm h-72">
+            <motion.div
+              className="rounded-xl overflow-hidden border border-gray-100 shadow-sm h-72"
+              variants={shouldReduceMotion ? undefined : mapReveal}
+              initial="hidden"
+              whileInView="visible"
+              viewport={VIEWPORT}
+            >
               <iframe
                 title="Excelcrete Redimix Location"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3857.578354239519!2d121.05109311167485!3d14.792763885657173!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397af77b2d3ef79%3A0x9d348f358e03f780!2sExcelcrete%20Redimix!5e0!3m2!1sen!2sph!4v1771994493632!5m2!1sen!2sph"
@@ -263,7 +320,7 @@ export function ContactUs() {
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
               />
-            </div>
+            </motion.div>
 
             {/* Quick Contact Info */}
             <div className="bg-brand-primary rounded-xl p-7 text-white">
@@ -283,15 +340,6 @@ export function ContactUs() {
                     </div>
                   </div>
                 </div>
-                {/* <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-brand-primary/20 rounded-lg flex items-center justify-center">
-                    <Phone className="w-4 h-4 text-brand-highlight" />
-                  </div>
-                  <div>
-                    <div className="text-white/60 text-xs mb-0.5">Ready Mix Dispatch (24/7)</div>
-                    <div className="text-white text-sm">09175700880 &bull; 09228022611</div>
-                  </div>
-                </div> */}
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 bg-brand-primary/20 rounded-lg flex items-center justify-center">
                     <Mail className="w-4 h-4 text-brand-highlight" />
@@ -311,7 +359,3 @@ export function ContactUs() {
     </div>
   );
 }
-
-
-
-

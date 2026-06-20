@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Await, NavLink, useLoaderData } from "react-router";
+import { motion, useReducedMotion, useMotionValue, useTransform, animate, useInView } from "motion/react";
 import useEmblaCarousel from "embla-carousel-react";
 import type { ProjectListItemDTO } from "@icp/shared";
 import {
@@ -15,6 +16,23 @@ import {
   Dam,
   Factory,
 } from "lucide-react";
+import {
+  fadeUpVariants,
+  fadeInVariants,
+  heroContainerVariants,
+  heroItemVariants,
+  imageRevealVariants,
+  slideFromLeftVariants,
+  slideFromRightVariants,
+  staggerContainerVariants,
+  staggerChildVariants,
+  ctaButtonVariants,
+  pulseBadgeAnimation,
+  transitionHover,
+  VIEWPORT,
+  parseStatValue,
+  transitionBase,
+} from "../lib/animations";
 
 const heroImg =
   "https://images.unsplash.com/photo-1763665814710-b0067b823603?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb25zdHJ1Y3Rpb24lMjBzaXRlJTIwYnVpbGRpbmclMjBwcm9qZWN0fGVufDF8fHx8MTc3MTc1MDM2M3ww&ixlib=rb-4.1.0&q=80&w=1080";
@@ -23,16 +41,8 @@ const engineerImg =
 
 const stats = [
   { value: "20+", label: "Years of Excellence", icon: Award },
-  {
-    value: "500+",
-    label: "Projects Completed",
-    icon: Building2,
-  },
-  {
-    value: "1,200+",
-    label: "Skilled Professionals",
-    icon: Users,
-  },
+  { value: "500+", label: "Projects Completed", icon: Building2 },
+  { value: "1,200+", label: "Skilled Professionals", icon: Users },
   { value: "24/7", label: "Service Availability", icon: Clock },
 ];
 
@@ -71,6 +81,58 @@ function pickRandom(projects: ProjectListItemDTO[], count: number): ProjectListI
   if (projects.length === 0) return [];
   const shuffled = [...projects].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
+}
+
+function CountUpStat({
+  value,
+  label,
+  icon: Icon,
+  shouldReduceMotion,
+}: {
+  value: string;
+  label: string;
+  icon: React.ElementType;
+  shouldReduceMotion: boolean | null;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-50px" });
+  const parsed = parseStatValue(value);
+  const motionValue = useMotionValue(0);
+  const rounded = useTransform(motionValue, (v) => Math.round(v).toLocaleString());
+
+  useEffect(() => {
+    if (!inView || !parsed || shouldReduceMotion) return;
+    const controls = animate(motionValue, parsed.number, {
+      duration: 1.5,
+      type: "spring",
+      stiffness: 60,
+      damping: 15,
+    });
+    return controls.stop;
+  }, [inView, parsed, motionValue, shouldReduceMotion]);
+
+  return (
+    <div ref={ref} className="flex flex-col items-center text-center">
+      <Icon className="w-7 h-7 text-background/80 mb-2" />
+      <div className="text-background" style={{ fontSize: "2rem", fontWeight: 800 }}>
+        {parsed && !shouldReduceMotion ? (
+          <>
+            <motion.span>{rounded}</motion.span>{parsed.suffix}
+          </>
+        ) : (
+          value
+        )}
+      </div>
+      <motion.div
+        className="text-background text-sm"
+        variants={fadeUpVariants}
+        initial="hidden"
+        animate={inView ? "visible" : "hidden"}
+      >
+        {label}
+      </motion.div>
+    </div>
+  );
 }
 
 function FeaturedProjectsSkeleton() {
@@ -115,32 +177,21 @@ function FeaturedProjectsCarousel({ projects }: { projects: ProjectListItemDTO[]
       }
     }, AUTOPLAY_INTERVAL);
 
-    const onPointerDown = () => {
-      isDraggingCarouselRef.current = true;
-    };
-
-    const onPointerUp = () => {
-      isDraggingCarouselRef.current = false;
-    };
+    const onPointerDown = () => { isDraggingCarouselRef.current = true; };
+    const onPointerUp = () => { isDraggingCarouselRef.current = false; };
 
     emblaApi.on("pointerDown", onPointerDown);
     emblaApi.on("pointerUp", onPointerUp);
     emblaApi.on("settle", onPointerUp);
 
     const rootNode = emblaApi.rootNode();
-    const onMouseEnter = () => {
-      isHoveringCarouselRef.current = true;
-    };
-    const onMouseLeave = () => {
-      isHoveringCarouselRef.current = false;
-    };
+    const onMouseEnter = () => { isHoveringCarouselRef.current = true; };
+    const onMouseLeave = () => { isHoveringCarouselRef.current = false; };
 
     rootNode.addEventListener("mouseenter", onMouseEnter);
     rootNode.addEventListener("mouseleave", onMouseLeave);
 
-    const onPointerCancel = () => {
-      isDraggingCarouselRef.current = false;
-    };
+    const onPointerCancel = () => { isDraggingCarouselRef.current = false; };
     rootNode.addEventListener("pointercancel", onPointerCancel);
 
     return () => {
@@ -199,42 +250,61 @@ function FeaturedProjectsCarousel({ projects }: { projects: ProjectListItemDTO[]
 
 export function Home() {
   const data = useLoaderData() as { projects: Promise<ProjectListItemDTO[]> };
+  const shouldReduceMotion = useReducedMotion();
 
   return (
     <div>
       {/* Hero */}
       <section className="relative min-h-[90vh] flex items-center overflow-hidden">
-        <img
+        <motion.img
           src={heroImg}
           alt="Construction site"
           className="absolute inset-0 w-full h-full object-cover"
+          initial={shouldReduceMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.6 }}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#01083A]/95 via-[#01083A]/78 to-transparent" />
         <div className="relative max-w-[80rem] mx-auto px-6 py-24 w-full">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 bg-[#7fd428]/20 border border-[#7fd428]/30 text-[#7fd428] px-4 py-1.5 rounded-full text-sm mb-6">
-              <span className="w-2 h-2 bg-[#7fd428] rounded-full animate-pulse" />
+          <motion.div
+            className="max-w-3xl"
+            variants={shouldReduceMotion ? undefined : heroContainerVariants}
+            initial="hidden"
+            animate="animate"
+          >
+            <motion.div
+              className="inline-flex items-center gap-2 bg-[#7fd428]/20 border border-[#7fd428]/30 text-[#7fd428] px-4 py-1.5 rounded-full text-sm mb-6"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              <motion.span
+                className="w-2 h-2 bg-[#7fd428] rounded-full"
+                animate={shouldReduceMotion ? {} : pulseBadgeAnimation}
+              />
               Trusted Since 2002
-            </div>
-            <h1
+            </motion.div>
+
+            <motion.h1
               className="text-white mb-6"
-              style={{
-                fontSize: "3.5rem",
-                fontWeight: 800,
-                lineHeight: 1.1,
-              }}
+              style={{ fontSize: "3.5rem", fontWeight: 800, lineHeight: 1.1 }}
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
             >
               Building the Future on a
               <br />
-              <span className="text-brand-accent">
-                Foundation
-              </span>{" "}
+              <span className="text-brand-accent">Foundation</span>{" "}
               of Excellence
-            </h1>
-            <p className="text-gray-300 text-lg mb-10 leading-relaxed">
+            </motion.h1>
+
+            <motion.p
+              className="text-gray-300 text-lg mb-10 leading-relaxed"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
               ICP-FNET Engineering delivers reliable concrete solutions spanning ready-mix concrete supply and pre-casted and pre-stressed structural elements, built for precision, quality, and lasting performance.
-            </p>
-            <div className="flex flex-wrap gap-4">
+            </motion.p>
+
+            <motion.div
+              className="flex flex-wrap gap-4"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
               <NavLink
                 to="/products"
                 className="flex items-center gap-2 bg-brand-accent hover-bg-brand-accent text-brand-primary px-7 py-3.5 rounded transition"
@@ -247,8 +317,8 @@ export function Home() {
               >
                 Get In Touch
               </NavLink>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </section>
 
@@ -256,21 +326,13 @@ export function Home() {
       <section className="bg-[var(--brand-accent-strong)]">
         <div className="max-w-[80rem] mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
           {stats.map((s) => (
-            <div
+            <CountUpStat
               key={s.label}
-              className="flex flex-col items-center text-center"
-            >
-              <s.icon className="w-7 h-7 text-background/80 mb-2" />
-              <div
-                className="text-background"
-                style={{ fontSize: "2rem", fontWeight: 800 }}
-              >
-                {s.value}
-              </div>
-              <div className="text-background text-sm">
-                {s.label}
-              </div>
-            </div>
+              value={s.value}
+              label={s.label}
+              icon={s.icon}
+              shouldReduceMotion={shouldReduceMotion}
+            />
           ))}
         </div>
       </section>
@@ -278,10 +340,13 @@ export function Home() {
       {/* About Snippet */}
       <section className="py-20 bg-brand-surface">
         <div className="max-w-[80rem] mx-auto px-6 grid md:grid-cols-2 gap-14 items-center">
-          <div>
-            <span className="text-brand-accent text-sm tracking-widest uppercase">
-              Who We Are
-            </span>
+          <motion.div
+            variants={shouldReduceMotion ? undefined : slideFromLeftVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
+            <span className="text-brand-accent text-sm tracking-widest uppercase">Who We Are</span>
             <h2
               className="text-brand-primary mt-2 mb-5"
               style={{ fontSize: "2.2rem", fontWeight: 800 }}
@@ -302,10 +367,7 @@ export function Home() {
                 "Committed to Structural Integrity and Quality Standards",
                 "Serving Developers and Contractors Across Bulacan and Nearby Regions",
               ].map((item) => (
-                <li
-                  key={item}
-                  className="flex items-start gap-2 text-gray-600 text-sm"
-                >
+                <li key={item} className="flex items-start gap-2 text-gray-600 text-sm">
                   <CheckCircle2 className="w-5 h-5 text-brand-accent shrink-0 mt-0.5" />
                   {item}
                 </li>
@@ -315,64 +377,68 @@ export function Home() {
               to="/about"
               className="inline-flex items-center gap-2 text-brand-accent hover-text-brand-accent-strong transition"
             >
-              Learn More About Us{" "}
-              <ArrowRight className="w-4 h-4" />
+              Learn More About Us <ArrowRight className="w-4 h-4" />
             </NavLink>
-          </div>
-          <div className="relative">
-            <img
+          </motion.div>
+
+          <motion.div
+            className="relative"
+            variants={shouldReduceMotion ? undefined : slideFromRightVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
+            <motion.img
               src={engineerImg}
               alt="Engineer on site"
               className="w-full h-[420px] object-cover rounded-lg shadow-xl"
+              variants={shouldReduceMotion ? undefined : imageRevealVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={VIEWPORT}
             />
             <div className="absolute -bottom-6 -left-6 bg-brand-primary text-white p-5 rounded-lg shadow-xl hidden md:block">
-              <div
-                className="text-brand-highlight"
-                style={{ fontSize: "2rem", fontWeight: 800 }}
-              >
-                20+
-              </div>
-              <div className="text-sm text-gray-300">
-                Years of Expertise
-              </div>
+              <div className="text-brand-highlight" style={{ fontSize: "2rem", fontWeight: 800 }}>20+</div>
+              <div className="text-sm text-gray-300">Years of Expertise</div>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Services */}
       <section className="py-20 bg-brand-card">
         <div className="max-w-[80rem] mx-auto px-6">
-          <div className="text-center mb-14">
-            <span className="text-brand-secondary text-sm tracking-widest uppercase">
-              What We Offer
-            </span>
-            <h2
-              className="text-brand-primary mt-2"
-              style={{ fontSize: "2.2rem", fontWeight: 800 }}
-            >
+          <motion.div
+            className="text-center mb-14"
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
+            <span className="text-brand-secondary text-sm tracking-widest uppercase">What We Offer</span>
+            <h2 className="text-brand-primary mt-2" style={{ fontSize: "2.2rem", fontWeight: 800 }}>
               Our Core Services
             </h2>
-          </div>
+          </motion.div>
+
           <div className="flex flex-wrap justify-center gap-8">
-            {services.map((svc) => (
-              <div
+            {services.map((svc, i) => (
+              <motion.div
                 key={svc.title}
-                className="w-full md:w-[calc((100%-2rem)/2)] lg:w-[calc((100%-4rem)/3)] bg-brand-surface rounded-xl p-8 shadow-sm hover:shadow-md transition group border border-brand-border"
+                className="w-full md:w-[calc((100%-2rem)/2)] lg:w-[calc((100%-4rem)/3)]"
+                initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={VIEWPORT}
+                transition={{ duration: 0.4, delay: i * 0.08, ease: [0.25, 0.46, 0.45, 0.94] }}
               >
-                <div className="w-14 h-14 bg-brand-highlight rounded-xl flex items-center justify-center mb-5 transition">
-                  <svc.icon className="w-7 h-7 text-brand-secondary group-hover:text-brand-primary transition" />
+                <div className="h-full bg-brand-surface rounded-xl p-8 shadow-sm hover:shadow-md hover:-translate-y-1 transition-[transform,box-shadow] duration-200 group border border-brand-border">
+                  <div className="w-14 h-14 bg-brand-highlight rounded-xl flex items-center justify-center mb-5 transition">
+                    <svc.icon className="w-7 h-7 text-brand-secondary group-hover:text-brand-primary transition" />
+                  </div>
+                  <h3 className="text-brand-primary mb-3" style={{ fontWeight: 700 }}>{svc.title}</h3>
+                  <p className="text-gray-500 text-sm leading-relaxed">{svc.desc}</p>
                 </div>
-                <h3
-                  className="text-brand-primary mb-3"
-                  style={{ fontWeight: 700 }}
-                >
-                  {svc.title}
-                </h3>
-                <p className="text-gray-500 text-sm leading-relaxed">
-                  {svc.desc}
-                </p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -381,15 +447,16 @@ export function Home() {
       {/* Featured Projects */}
       <section className="py-20 bg-brand-surface">
         <div className="max-w-[80rem] mx-auto px-6">
-          <div className="flex flex-wrap items-end justify-between gap-4 mb-14">
+          <motion.div
+            className="flex flex-wrap items-end justify-between gap-4 mb-14"
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
             <div>
-              <span className="text-brand-secondary text-sm tracking-widest uppercase">
-                Our Work
-              </span>
-              <h2
-                className="text-brand-primary mt-2"
-                style={{ fontSize: "2.2rem", fontWeight: 800 }}
-              >
+              <span className="text-brand-secondary text-sm tracking-widest uppercase">Our Work</span>
+              <h2 className="text-brand-primary mt-2" style={{ fontSize: "2.2rem", fontWeight: 800 }}>
                 Featured Projects
               </h2>
             </div>
@@ -399,35 +466,61 @@ export function Home() {
             >
               View All <ArrowRight className="w-4 h-4" />
             </NavLink>
-          </div>
-          <Suspense fallback={<FeaturedProjectsSkeleton />}>
-            <Await resolve={data.projects}>
-              {(projects: ProjectListItemDTO[]) => <FeaturedProjectsCarousel projects={projects} />}
-            </Await>
-          </Suspense>
+          </motion.div>
+
+          <motion.div
+            variants={shouldReduceMotion ? undefined : fadeInVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
+            <Suspense fallback={<FeaturedProjectsSkeleton />}>
+              <Await resolve={data.projects}>
+                {(projects: ProjectListItemDTO[]) => <FeaturedProjectsCarousel projects={projects} />}
+              </Await>
+            </Suspense>
+          </motion.div>
         </div>
       </section>
 
       {/* CTA */}
       <section className="bg-brand-primary py-20">
         <div className="max-w-[80rem] mx-auto px-6 text-center">
-          <h2
+          <motion.h2
             className="text-white mb-4"
             style={{ fontSize: "2.2rem", fontWeight: 800 }}
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
           >
             Ready to Start Your Project?
-          </h2>
-          <p className="text-white/70 mb-8 max-w-xl mx-auto">
+          </motion.h2>
+          <motion.p
+            className="text-white/70 mb-8 max-w-xl mx-auto"
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+            transition={{ ...transitionBase, delay: 0.1 }}
+          >
             Get in touch with our team today for a consultation,
             project quote, or to learn more about our ready-mix
             concrete services.
-          </p>
-          <NavLink
-            to="/contact"
-            className="inline-flex items-center gap-2 bg-brand-accent hover-bg-brand-accent text-brand-primary px-8 py-4 rounded transition"
+          </motion.p>
+          <motion.div
+            variants={shouldReduceMotion ? undefined : ctaButtonVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
           >
-            Contact Us Today <ArrowRight className="w-4 h-4" />
-          </NavLink>
+            <NavLink
+              to="/contact"
+              className="inline-flex items-center gap-2 bg-brand-accent hover-bg-brand-accent text-brand-primary px-8 py-4 rounded transition"
+            >
+              Contact Us Today <ArrowRight className="w-4 h-4" />
+            </NavLink>
+          </motion.div>
         </div>
       </section>
     </div>
