@@ -126,6 +126,12 @@ pnpm --dir "$CANDIDATE_DIR" --filter @icp/server run prisma:generate
 pnpm --dir "$CANDIDATE_DIR" --filter @icp/server run build
 pnpm --dir "$CANDIDATE_DIR" --filter @icp/web run build
 
+# Nginx runs as www-data and must be able to traverse the release and read the
+# generated frontend without gaining access to the private shared environment.
+chmod 755 "$CANDIDATE_DIR" "$CANDIDATE_DIR/apps" "$CANDIDATE_DIR/apps/web"
+find "$CANDIDATE_DIR/apps/web/dist" -type d -exec chmod 755 {} +
+find "$CANDIDATE_DIR/apps/web/dist" -type f -exec chmod 644 {} +
+
 echo "--- Applying backward-compatible migrations ---"
 pnpm --dir "$CANDIDATE_DIR" --filter @icp/server run prisma:setup:prod
 
@@ -156,6 +162,9 @@ for release in "${prior_releases[@]}"; do
   fi
 done
 cp -a "$CANDIDATE_DIR/apps/web/dist/assets/." "$ASSET_GENERATION/"
+chmod 755 "$ASSET_GENERATION"
+find "$ASSET_GENERATION" -type d -exec chmod 755 {} +
+find "$ASSET_GENERATION" -type f -exec chmod 644 {} +
 
 if [[ "$INITIAL_BOOTSTRAP" != "1" ]]; then
   if [[ -z "$PREVIOUS_RELEASE" || ! -d "$PREVIOUS_RELEASE" ]]; then
