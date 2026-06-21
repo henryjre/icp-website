@@ -4,10 +4,10 @@ import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
 import { ZoomIn, ZoomOut, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
+// The matching PDF.js worker is copied into `public/` so Vite serves it as a
+// stable asset in development and production. A package-relative URL is left
+// unresolved by Vite and causes every PDF load to fail when the worker 404s.
+pdfjs.GlobalWorkerOptions.workerSrc = `${import.meta.env.BASE_URL}pdf.worker.min.mjs`;
 
 interface PdfViewerProps {
   url: string | { data: ArrayBuffer };
