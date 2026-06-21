@@ -44,7 +44,9 @@ function toInviteDto(invite: {
 }
 
 function generateInviteCode(): string {
-  return crypto.randomBytes(6).toString("base64url").toUpperCase();
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = crypto.randomBytes(6);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 }
 
 function resolveInviteStatus(status: "Active" | "Archived" | "Expired", expiresAt: Date | null) {
@@ -147,6 +149,17 @@ invitesRouter.patch(
     return res.json({
       invite: toInviteDto({ ...invite, status: resolveInviteStatus(invite.status, invite.expiresAt) }),
     });
+  }),
+);
+
+invitesRouter.delete(
+  "/:inviteId",
+  authGuard,
+  roleGuard("admin"),
+  validate({ params: inviteIdParamSchema }),
+  asyncHandler(async (req, res) => {
+    await prisma.inviteCode.delete({ where: { id: req.params.inviteId } });
+    return res.status(204).send();
   }),
 );
 

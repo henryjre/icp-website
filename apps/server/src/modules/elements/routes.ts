@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../lib/prisma.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { authGuard } from "../../middleware/authGuard.js";
@@ -23,6 +24,14 @@ function canAccessConfidential(role?: "admin" | "editor" | "client") {
 
 function toDateValue(value: Date): string {
   return value.toISOString().slice(0, 10);
+}
+
+const duplicateIdentityMessage = "Batch and serial number already exist for this project";
+
+function isIdentityConstraintError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") return false;
+  const target = JSON.stringify(error.meta?.target ?? "");
+  return target.includes("batch") && target.includes("serialNumber");
 }
 
 elementsRouter.get(
@@ -101,32 +110,50 @@ elementsRouter.post(
 
     const payload = req.body;
 
-    const element = await prisma.$transaction(async (tx) => {
-      const el = await tx.element.create({
-        data: {
-          projectId: req.params.projectId,
-          name: payload.name,
-          location: payload.location,
-          status: payload.status,
-          castingDate: new Date(payload.castingDate),
-          createdById: req.user!.id,
-          shortToken: "",
-        },
-      });
-      const token = toBase62(el.seq);
-      return tx.element.update({
-        where: { id: el.id },
-        data: { shortToken: token },
-        include: { createdBy: true },
-      });
+    const duplicate = await prisma.element.findFirst({
+      where: {
+        projectId: req.params.projectId,
+        batch: payload.batch,
+        serialNumber: payload.serialNumber,
+      },
+      select: { id: true },
     });
+    if (duplicate) throw new HttpError(409, duplicateIdentityMessage);
+
+    let element;
+    try {
+      element = await prisma.$transaction(async (tx) => {
+        const el = await tx.element.create({
+          data: {
+            projectId: req.params.projectId,
+            batch: payload.batch,
+            serialNumber: payload.serialNumber,
+            name: payload.name,
+            location: payload.location,
+            status: payload.status,
+            castingDate: new Date(payload.castingDate),
+            createdById: req.user!.id,
+            shortToken: "",
+          },
+        });
+        const token = toBase62(el.seq);
+        return tx.element.update({
+          where: { id: el.id },
+          data: { shortToken: token },
+          include: { createdBy: true },
+        });
+      });
+    } catch (error) {
+      if (isIdentityConstraintError(error)) throw new HttpError(409, duplicateIdentityMessage);
+      throw error;
+    }
 
     await prisma.activity.create({
       data: {
         projectId: req.params.projectId,
         elementId: element.id,
         action: "Element Created",
-        description: `Element "${element.name}" created`,
+        description: `Element "${element.name}" created (Batch ${element.batch}, Serial ${element.serialNumber})`,
         type: "created",
         actorId: req.user!.id,
       },
@@ -191,8 +218,33 @@ elementsRouter.patch(
     }
 
     const payload = req.body;
+    const nextBatch = payload.batch ?? existing.batch;
+    const nextSerialNumber = payload.serialNumber ?? existing.serialNumber;
+
+    if ((nextBatch === null) !== (nextSerialNumber === null)) {
+      throw new HttpError(400, "Batch and serial number must both be assigned");
+    }
+
+    if (nextBatch !== null && nextSerialNumber !== null) {
+      const duplicate = await prisma.element.findFirst({
+        where: {
+          projectId: req.params.projectId,
+          batch: nextBatch,
+          serialNumber: nextSerialNumber,
+          id: { not: existing.id },
+        },
+        select: { id: true },
+      });
+      if (duplicate) throw new HttpError(409, duplicateIdentityMessage);
+    }
 
     const changes: string[] = [];
+    if (payload.batch !== undefined && payload.batch !== existing.batch) {
+      changes.push(`Batch: ${existing.batch ?? "Unassigned"} -> ${payload.batch}`);
+    }
+    if (payload.serialNumber !== undefined && payload.serialNumber !== existing.serialNumber) {
+      changes.push(`Serial Number: ${existing.serialNumber ?? "Unassigned"} -> ${payload.serialNumber}`);
+    }
     if (payload.name !== undefined && payload.name !== existing.name) {
       changes.push(`Name: "${existing.name}" -> "${payload.name}"`);
     }
@@ -209,18 +261,26 @@ elementsRouter.patch(
       }
     }
 
-    const element = await prisma.element.update({
-      where: { id: existing.id },
-      data: {
-        ...(payload.name !== undefined ? { name: payload.name } : {}),
-        ...(payload.location !== undefined ? { location: payload.location } : {}),
-        ...(payload.status !== undefined ? { status: payload.status } : {}),
-        ...(payload.castingDate !== undefined ? { castingDate: new Date(payload.castingDate) } : {}),
-      },
-      include: {
-        createdBy: true,
-      },
-    });
+    let element;
+    try {
+      element = await prisma.element.update({
+        where: { id: existing.id },
+        data: {
+          ...(payload.batch !== undefined ? { batch: payload.batch } : {}),
+          ...(payload.serialNumber !== undefined ? { serialNumber: payload.serialNumber } : {}),
+          ...(payload.name !== undefined ? { name: payload.name } : {}),
+          ...(payload.location !== undefined ? { location: payload.location } : {}),
+          ...(payload.status !== undefined ? { status: payload.status } : {}),
+          ...(payload.castingDate !== undefined ? { castingDate: new Date(payload.castingDate) } : {}),
+        },
+        include: {
+          createdBy: true,
+        },
+      });
+    } catch (error) {
+      if (isIdentityConstraintError(error)) throw new HttpError(409, duplicateIdentityMessage);
+      throw error;
+    }
 
     await prisma.activity.create({
       data: {

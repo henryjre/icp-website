@@ -1,4 +1,20 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* Sonner: move close button to right-center */
+[data-sonner-toast] [data-close-button] {
+  position: absolute !important;
+  left: auto !important;
+  right: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  border: none !important;
+  background: transparent !important;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+[data-sonner-toast] [data-close-button]:hover {
+  opacity: 1;
+}
 npm

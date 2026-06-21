@@ -9,7 +9,7 @@ export const registerBodySchema = z.object({
   fullName: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(8),
-  inviteCode: z.string().min(4),
+  inviteCode: z.string().regex(/^[A-Z0-9]{6}$/, "Invalid invite code"),
 });
 
 export const refreshBodySchema = z.object({

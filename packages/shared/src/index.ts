@@ -33,6 +33,7 @@ export interface ProjectActivityDTO {
 export interface ProjectDocumentDTO {
   id: string;
   name: string;
+  mimeType: string;
   category: DocumentCategory;
   scope: DocumentScope;
   type: DocumentType;
@@ -46,6 +47,8 @@ export interface PrecastElementListItemDTO {
   id: string;
   projectId: string;
   projectName: string;
+  batch: number | null;
+  serialNumber: string | null;
   name: string;
   location: string;
   status: ElementStatus;
@@ -191,6 +194,8 @@ export interface ProjectThumbnailUploadUrlResponseDTO extends UploadUrlResponseD
 }
 
 export interface UpdateElementRequestDTO {
+  batch?: number;
+  serialNumber?: string;
   name?: string;
   location?: string;
   status?: ElementStatus;
@@ -198,6 +203,8 @@ export interface UpdateElementRequestDTO {
 }
 
 export interface CreateElementRequestDTO {
+  batch: number;
+  serialNumber: string;
   name: string;
   location: string;
   status: ElementStatus;

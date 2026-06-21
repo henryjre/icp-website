@@ -11,6 +11,7 @@ import { PrecastElementDetail } from "./pages/PrecastElementDetail";
 import { ContactUs } from "./pages/ContactUs";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
+import { AuthLayout } from "./components/AuthLayout";
 import { UsersAdmin } from "./pages/UsersAdmin";
 import { CreateProject } from "./pages/CreateProject";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
@@ -29,7 +30,12 @@ function EmptyRoute() {
   return null;
 }
 
-async function projectLoader({ params }: LoaderFunctionArgs) {
+async function projectLoader({ params, request }: LoaderFunctionArgs) {
+  if (!apiClient.getStoredUser()) {
+    const from = new URL(request.url).pathname;
+    return redirect(`/login?from=${encodeURIComponent(from)}`);
+  }
+
   const routeParam = params.projectId;
   if (!routeParam) {
     return redirect("/projects");
@@ -57,7 +63,12 @@ async function projectLoader({ params }: LoaderFunctionArgs) {
   }
 }
 
-async function elementLoader({ params }: LoaderFunctionArgs) {
+async function elementLoader({ params, request }: LoaderFunctionArgs) {
+  if (!apiClient.getStoredUser()) {
+    const from = new URL(request.url).pathname;
+    return redirect(`/login?from=${encodeURIComponent(from)}`);
+  }
+
   const projectId = params.projectId;
   const elementId = params.elementId;
   const projectCode = params.projectCode;
@@ -88,7 +99,12 @@ async function elementLoader({ params }: LoaderFunctionArgs) {
   }
 }
 
-async function shortElementEntryLoader({ params }: LoaderFunctionArgs) {
+async function shortElementEntryLoader({ params, request }: LoaderFunctionArgs) {
+  if (!apiClient.getStoredUser()) {
+    const from = new URL(request.url).pathname;
+    return redirect(`/login?from=${encodeURIComponent(from)}`);
+  }
+
   if (!params.elementToken) {
     return redirect("/projects");
   }
@@ -107,7 +123,7 @@ async function shortElementEntryLoader({ params }: LoaderFunctionArgs) {
 async function guestOnlyLoader() {
   const user = apiClient.getStoredUser();
   if (user) {
-    return redirect(user.role === "admin" ? "/users" : "/projects");
+    return redirect("/");
   }
   return null;
 }
@@ -156,8 +172,13 @@ export const router = createBrowserRouter([
       { path: "contact", Component: ContactUs },
       { path: "privacy-policy", Component: PrivacyPolicy },
       { path: "terms-and-conditions", Component: TermsAndConditions },
-      { path: "login", Component: Login, loader: guestOnlyLoader },
-      { path: "register", Component: Register, loader: guestOnlyLoader },
+      {
+        Component: AuthLayout,
+        children: [
+          { path: "login", Component: Login, loader: guestOnlyLoader },
+          { path: "register", Component: Register, loader: guestOnlyLoader },
+        ],
+      },
       { path: "users", Component: UsersAdmin, loader: adminLoader },
       { path: "admin/projects/new", Component: CreateProject, loader: adminLoader },
     ],

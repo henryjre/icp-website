@@ -53,6 +53,7 @@ export function mapDocument(document: DocumentRecord) {
   return {
     id: document.id,
     name: document.name,
+    mimeType: document.mimeType,
     category: document.category as DocumentCategory,
     scope: document.scope as DocumentScope,
     type: document.docType,
@@ -68,6 +69,8 @@ export function mapElementListItem(element: ElementRecord, projectName: string) 
     id: element.id,
     projectId: element.projectId,
     projectName,
+    batch: element.batch,
+    serialNumber: element.serialNumber,
     name: element.name,
     location: element.location,
     status: element.status,

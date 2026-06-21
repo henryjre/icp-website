@@ -161,6 +161,8 @@ model Element {
   seq           Int           @unique @default(autoincrement())
   shortToken    String        @unique @default("")
   projectId     String
+  batch         Int?
+  serialNumber  String?
   name          String
   location      String
   status        ElementStatus
@@ -175,6 +177,7 @@ model Element {
   activities Activity[]
 
   @@index([projectId])
+  @@unique([projectId, batch, serialNumber])
 }
 
 model Document {

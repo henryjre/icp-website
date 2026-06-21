@@ -418,6 +418,12 @@ export const apiClient = {
     });
   },
 
+  async unarchiveUser(userId: string) {
+    return request<{ user: UserManagementDTO }>(`/users/${userId}/unarchive`, {
+      method: "PATCH",
+    });
+  },
+
   async updateUserRole(userId: string, role: "admin" | "editor" | "client") {
     return request<{ user: UserManagementDTO }>(`/users/${userId}/role`, {
       method: "PATCH",
@@ -454,6 +460,10 @@ export const apiClient = {
     return request<{ invite: InviteCodeDTO }>(`/invites/${inviteId}/unarchive`, {
       method: "PATCH",
     });
+  },
+
+  async deleteInvite(inviteId: string) {
+    return request<void>(`/invites/${inviteId}`, { method: "DELETE" });
   },
 
   async sendInviteEmail(inviteId: string, payload: SendInviteEmailRequestDTO) {

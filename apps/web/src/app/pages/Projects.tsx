@@ -1,6 +1,6 @@
 import { Suspense, useState } from "react";
-import { Await, NavLink, useLoaderData } from "react-router";
-import { MapPin, Calendar, CheckCircle2, Clock, ArrowRight, Search, Layers } from "lucide-react";
+import { Await, useLoaderData, useNavigate } from "react-router";
+import { MapPin, Calendar, CheckCircle2, Clock, ArrowRight, Search, Layers, Lock } from "lucide-react";
 import type { ProjectListItemDTO } from "@icp/shared";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Skeleton } from "../components/ui/skeleton";
@@ -11,6 +11,8 @@ import {
   transitionFast,
   VIEWPORT,
 } from "../lib/animations";
+import { Modal } from "../components/Modal";
+import { apiClient } from "../lib/api/client";
 
 function ProjectCardSkeleton() {
   return (
@@ -41,8 +43,18 @@ function ProjectsGridSkeleton() {
 export function Projects() {
   const data = useLoaderData() as { projects: Promise<ProjectListItemDTO[]> };
   const shouldReduceMotion = useReducedMotion();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [loginModalOpen, setLoginModalOpen] = useState(false);
+
+  function handleProjectClick(projectCode: string) {
+    if (apiClient.getStoredUser()) {
+      void navigate(`/projects/${projectCode}`);
+    } else {
+      setLoginModalOpen(true);
+    }
+  }
 
   return (
     <div>
@@ -194,9 +206,12 @@ export function Projects() {
                           animate="visible"
                           exit={shouldReduceMotion ? {} : { opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
                         >
-                          <NavLink
-                            to={`/projects/${project.projectCode}`}
-                            className="group bg-brand-surface rounded-xl overflow-hidden shadow-sm border border-brand-border hover:shadow-xl hover:-translate-y-1 transition-all duration-300 block"
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleProjectClick(project.projectCode)}
+                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleProjectClick(project.projectCode); }}
+                            className="group bg-brand-surface rounded-xl overflow-hidden shadow-sm border border-brand-border hover:shadow-xl hover:-translate-y-1 transition-all duration-300 block cursor-pointer"
                           >
                             <div className="relative h-52 overflow-hidden">
                               <img
@@ -252,7 +267,7 @@ export function Projects() {
                                 </span>
                               </div>
                             </div>
-                          </NavLink>
+                          </div>
                         </motion.div>
                       ))}
                     </AnimatePresence>
@@ -263,6 +278,18 @@ export function Projects() {
           </Suspense>
         </div>
       </section>
+
+      <Modal
+        open={loginModalOpen}
+        onClose={() => setLoginModalOpen(false)}
+        title="Sign in required"
+        titleIcon={<Lock className="w-4 h-4" />}
+        description="This project is only available to registered users. Please sign in to continue."
+        confirmLabel="Sign In"
+        onConfirm={() => void navigate("/login?from=/projects")}
+        cancelLabel="Cancel"
+        maxWidth="max-w-sm"
+      />
     </div>
   );
 }

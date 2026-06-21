@@ -2,6 +2,7 @@
 import { Outlet, NavLink, ScrollRestoration, useLocation, useNavigate, useNavigation } from "react-router";
 import { PageTransition } from "./PageTransition";
 import { Menu, X, Phone, Mail, MapPin, ChevronUp, LogOut, Shield } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import type { UserDTO } from "@icp/shared";
 import { apiClient } from "../lib/api/client";
 
@@ -133,7 +134,7 @@ export function Layout() {
         </div>
       </div>
 
-      <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? "shadow-lg bg-brand-surface" : "bg-brand-surface"}`}>
+      <header data-app-header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? "shadow-lg bg-brand-surface" : "bg-brand-surface"}`}>
         <div className="max-w-[80rem] mx-auto px-6 py-4 flex items-center justify-between">
           <NavLink to="/" className="flex items-center">
             <div className="relative w-[132px] h-10 sm:w-[168px] sm:h-12">
@@ -215,47 +216,87 @@ export function Layout() {
           </button>
         </div>
 
-        {menuOpen && (
-          <div className="md:hidden bg-brand-surface border-t border-brand-border px-6 py-4">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-gray-400 px-4 pb-2">Public</div>
-            {publicNavItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === "/"}
-                className={({ isActive }) =>
-                  `block px-4 py-3 rounded mb-1 text-sm tracking-wide ${isActive ? "text-brand-primary bg-brand-card" : "text-brand-body hover-text-brand-primary"}`
-                }
+        <AnimatePresence>
+          {menuOpen && (
+            <>
+              {/* Backdrop */}
+              <motion.div
+                key="backdrop"
+                className="fixed inset-0 z-40 bg-black/30 md:hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setMenuOpen(false)}
+              />
+              {/* Slide panel */}
+              <motion.div
+                key="panel"
+                className="fixed inset-0 z-50 bg-brand-surface md:hidden flex flex-col"
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", stiffness: 320, damping: 32 }}
               >
-                {item.label}
-              </NavLink>
-            ))}
+                {/* Panel header */}
+                <div className="flex items-center justify-between px-5 py-4 border-b border-brand-border">
+                  <img src="/logo-icp.webp" alt="ICP" className="h-8 object-contain" />
+                  <button onClick={() => setMenuOpen(false)} className="p-1.5 rounded-lg text-brand-body hover-bg-brand-card transition">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-            {isAdmin && (
-              <>
-                <div className="my-3 h-px bg-brand-border" />
-                <div className="text-[10px] uppercase tracking-[0.2em] text-gray-400 px-4 pb-2">Admin</div>
-                {adminNavItems.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `block px-4 py-3 rounded mb-1 text-sm tracking-wide ${isActive ? "text-brand-primary bg-brand-highlight" : "text-brand-body hover-text-brand-primary hover-bg-brand-card"}`
-                    }
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
-              </>
-            )}
+                {/* Nav items */}
+                <nav className="flex-1 overflow-y-auto px-4 py-4">
+                  {publicNavItems.map((item) => (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      end={item.path === "/"}
+                      className={({ isActive }) =>
+                        `flex items-center px-4 py-3 rounded-xl mb-1 text-sm tracking-wide transition ${isActive ? "text-brand-primary bg-brand-card font-medium" : "text-brand-body hover-text-brand-primary hover-bg-brand-card"}`
+                      }
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
 
-            {currentUser ? (
-              <button onClick={handleLogout} className="w-full text-left px-4 py-3 rounded mb-1 text-sm tracking-wide text-brand-body hover-text-brand-primary hover-bg-brand-card transition">Logout</button>
-            ) : (
-              <NavLink to="/login" className="block px-4 py-3 rounded mb-1 text-sm tracking-wide text-brand-body hover-text-brand-primary hover-bg-brand-card transition">Login</NavLink>
-            )}
-          </div>
-        )}
+                  {isAdmin && (
+                    <>
+                      <div className="my-3 h-px bg-brand-border" />
+                      <div className="text-[10px] uppercase tracking-[0.2em] text-gray-400 px-4 pb-2">Admin</div>
+                      {adminNavItems.map((item) => (
+                        <NavLink
+                          key={item.path}
+                          to={item.path}
+                          className={({ isActive }) =>
+                            `flex items-center px-4 py-3 rounded-xl mb-1 text-sm tracking-wide transition ${isActive ? "text-brand-primary bg-brand-highlight font-medium" : "text-brand-body hover-text-brand-primary hover-bg-brand-card"}`
+                          }
+                        >
+                          {item.label}
+                        </NavLink>
+                      ))}
+                    </>
+                  )}
+                </nav>
+
+                {/* Bottom action */}
+                <div className="px-4 py-4 border-t border-brand-border">
+                  {currentUser ? (
+                    <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm tracking-wide text-brand-body hover-text-brand-primary hover-bg-brand-card transition">
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  ) : (
+                    <NavLink to="/login" className="flex items-center justify-center px-4 py-3 rounded-xl text-sm font-medium bg-brand-primary text-white transition">
+                      Login
+                    </NavLink>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
         <div className={`h-0.5 bg-brand-primary transition-opacity duration-200 ${isNavigating ? "opacity-100" : "opacity-0"}`} />
       </header>
 
@@ -334,4 +375,3 @@ export function Layout() {
     </div>
   );
 }
-

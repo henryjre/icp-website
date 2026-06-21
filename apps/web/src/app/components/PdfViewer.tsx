@@ -10,7 +10,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 ).toString();
 
 interface PdfViewerProps {
-  url: string;
+  url: string | { data: ArrayBuffer };
 }
 
 const MIN_SCALE = 0.25;

@@ -197,6 +197,26 @@ usersRouter.patch(
 );
 
 usersRouter.patch(
+  "/:userId/unarchive",
+  authGuard,
+  roleGuard("admin"),
+  validate({ params: userIdParamSchema }),
+  asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        status: "Active",
+        isActive: true,
+      },
+    });
+
+    return res.json({ user: toUserDto(user) });
+  }),
+);
+
+usersRouter.patch(
   "/:userId/role",
   authGuard,
   roleGuard("admin"),

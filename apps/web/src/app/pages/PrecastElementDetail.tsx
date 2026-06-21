@@ -1,5 +1,6 @@
 import { useLoaderData, useParams, NavLink, useNavigate } from "react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Paginator } from "../components/Paginator";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PrecastElementDTO, ProjectActivityDTO, ProjectDocumentDTO } from "@icp/shared";
 import {
   ChevronRight,
@@ -10,20 +11,184 @@ import {
   History,
   QrCode,
   Download,
-  ExternalLink,
   CheckCircle2,
   Clock,
   Pencil,
   Save,
   X,
   Trash2,
-  AlertTriangle,
+  Lock,
+  Layers,
+  Upload,
 } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { QRCodeDisplay } from "../components/QRCodeDisplay";
+import { Modal } from "../components/Modal";
+import { DocumentViewer } from "../components/DocumentViewer";
+import { MobileQrScanner } from "../components/MobileQrScanner";
 import { apiClient, ApiClientError } from "../lib/api/client";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts/store";
+import {
+  EASE_STRUCTURAL,
+  heroContainerVariants,
+  heroItemVariants,
+  staggerContainerVariants,
+  staggerChildVariants,
+  fadeUpVariants,
+  transitionFast,
+  VIEWPORT,
+} from "../lib/animations";
 
-const activityStyles: Record<string, { badge: string; dot: string }> = { created: { badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" }, updated: { badge: "bg-brand-soft text-brand-secondary", dot: "bg-brand-secondary" }, status: { badge: "bg-purple-100 text-purple-700", dot: "bg-purple-500" }, document: { badge: "bg-green-100 text-green-700", dot: "bg-green-500" }, comment: { badge: "bg-gray-100 text-brand-muted", dot: "bg-gray-400" }, delivered: { badge: "bg-orange-100 text-orange-700", dot: "bg-orange-500" } };
+// ─── Activity styles ─────────────────────────────────────────────────────────
+
+const activityIcons: Record<string, { color: string; dot: string }> = {
+  created:   { color: "bg-blue-100 text-blue-600",        dot: "bg-blue-500" },
+  updated:   { color: "bg-brand-soft text-brand-primary", dot: "bg-brand-secondary" },
+  status:    { color: "bg-purple-100 text-purple-600",    dot: "bg-purple-500" },
+  document:  { color: "bg-green-100 text-green-600",      dot: "bg-green-500" },
+  comment:   { color: "bg-gray-100 text-brand-muted",     dot: "bg-gray-400" },
+  delivered: { color: "bg-orange-100 text-orange-600",    dot: "bg-orange-500" },
+};
+
+// ─── Tab types ───────────────────────────────────────────────────────────────
+
+type Tab = "details" | "testResults" | "planDocs" | "activity";
+
+// ─── DocPreviewPanel ─────────────────────────────────────────────────────────
+
+type DocPreviewPanelProps = {
+  doc: { id: string; type: string; mimeType: string; name: string; isConfidential: boolean };
+  onGetUrl: () => Promise<string>;
+};
+
+function DocPreviewPanel({ doc, onGetUrl }: DocPreviewPanelProps) {
+  const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const isImage = doc.mimeType.startsWith("image/");
+
+  useEffect(() => {
+    if (!isImage) return;
+    let cancelled = false;
+    onGetUrl().then((url) => { if (!cancelled) setImgSrc(url); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [doc.id, isImage]);
+
+  const panelGraphic = () => {
+    if (isImage) {
+      return imgSrc
+        ? <img src={imgSrc} alt={doc.name} className="absolute inset-0 w-full h-full object-cover" />
+        : <div className="absolute inset-0 animate-pulse bg-white/10" />;
+    }
+    if (doc.type === "PDF") return (
+      <svg className="absolute inset-0 w-full h-full opacity-25" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        {[18, 30, 42, 54, 66, 78, 90].map((y, i) => (
+          <line key={y} x1={i % 3 === 2 ? "18%" : "12%"} y1={`${y}%`} x2={i % 3 === 2 ? "72%" : i % 3 === 1 ? "85%" : "90%"} y2={`${y}%`} stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+        ))}
+      </svg>
+    );
+    if (doc.type === "XLSX") return (
+      <svg className="absolute inset-0 w-full h-full opacity-15" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        {[0, 1, 2, 3].flatMap((col) => [0, 1, 2, 3, 4].map((row) => (
+          <rect key={`${col}-${row}`} x={`${10 + col * 21}%`} y={`${14 + row * 16}%`} width="16%" height="11%" rx="1" fill="white" />
+        )))}
+      </svg>
+    );
+    if (doc.type === "DWG" || doc.type === "DXF") return (
+      <svg className="absolute inset-0 w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" viewBox="0 0 100 75">
+        {[15, 30, 45, 60].map((y) => <line key={`h${y}`} x1="8" y1={y} x2="92" y2={y} stroke="white" strokeWidth="0.5" />)}
+        {[20, 40, 60, 80].map((x) => <line key={`v${x}`} x1={x} y1="8" x2={x} y2="67" stroke="white" strokeWidth="0.5" />)}
+        <polyline points="20,58 38,28 56,44 74,18" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="20" cy="58" r="2" fill="white" /><circle cx="74" cy="18" r="2" fill="white" />
+      </svg>
+    );
+    if (doc.type === "DOCX") return (
+      <svg className="absolute inset-0 w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <line x1="14%" y1="26%" x2="58%" y2="26%" stroke="white" strokeWidth="3" strokeLinecap="round" />
+        {[38, 51, 64, 77].map((y) => (
+          <line key={y} x1="14%" y1={`${y}%`} x2="86%" y2={`${y}%`} stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+        ))}
+      </svg>
+    );
+    return null;
+  };
+
+  const panelBg: Record<string, string> = {
+    PDF:   "bg-gradient-to-br from-red-700 to-red-900",
+    DOCX:  "bg-gradient-to-br from-blue-700 to-blue-900",
+    XLSX:  "bg-gradient-to-br from-green-700 to-green-900",
+    DWG:   "bg-gradient-to-br from-[#0d2b5e] to-[#0a1e42]",
+    DXF:   "bg-gradient-to-br from-[#0d2b5e] to-[#0a1e42]",
+    OTHER: "bg-gradient-to-br from-slate-600 to-slate-800",
+  };
+  const bg = isImage ? "bg-gray-100" : (panelBg[doc.type] ?? panelBg.OTHER);
+
+  return (
+    <div className={`relative w-full h-28 sm:h-32 ${bg} overflow-hidden`}>
+      {panelGraphic()}
+      {!isImage && (
+        <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-widest text-white/60 uppercase bg-black/20">
+          {doc.type}
+        </div>
+      )}
+      {doc.isConfidential && (
+        <div className="absolute top-3 right-[-22px] bg-red-600 text-white text-[8px] font-bold tracking-widest uppercase px-8 py-0.5 rotate-45 shadow">
+          Confidential
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ActivityDescription ─────────────────────────────────────────────────────
+
+function ActivityDescription({ description }: { description: string }) {
+  const lines = description.split("\n").filter((l) => l.trim().length > 0);
+  const diffPattern = /^\s*-?\s*([^:]+):\s*(.+?)\s*->\s*(.+)\s*$/;
+  return (
+    <div className="text-brand-muted text-sm mt-1 space-y-1">
+      {lines.map((line, i) => {
+        const match = line.match(diffPattern);
+        if (!match) return <p key={i} className="leading-relaxed">{line}</p>;
+        const [, field, before, after] = match;
+        return (
+          <p key={i} className="leading-relaxed">
+            <span className="text-brand-muted">{field}: </span>
+            <span className="line-through text-brand-muted/60">{before}</span>
+            <span className="mx-1 text-brand-primary font-bold">→</span>
+            <span className="text-brand-primary font-semibold">{after}</span>
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── SectionHeading ───────────────────────────────────────────────────────────
+
+function SectionHeading({ icon: Icon, label }: { icon: typeof FileText; label: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-2">
+      <div className="w-9 h-9 bg-brand-soft rounded-xl flex items-center justify-center shrink-0">
+        <Icon className="w-4 h-4 text-brand-secondary" />
+      </div>
+      <h2 className="text-brand-primary text-lg sm:text-xl font-bold leading-tight">{label}</h2>
+    </div>
+  );
+}
+
+// ─── EditField + inputCls ─────────────────────────────────────────────────────
+
+const inputCls = "mt-1 min-h-11 w-full border border-brand-border rounded-xl px-4 py-2.5 text-sm bg-[#f5f7fc] focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 transition";
+
+function EditField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs text-brand-muted uppercase tracking-wider font-medium">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function PrecastElementDetail() {
   const { projectId: projectIdParam, elementId: elementIdParam, projectCode } = useParams<{
@@ -33,6 +198,7 @@ export function PrecastElementDetail() {
     elementToken?: string;
   }>();
   const navigate = useNavigate();
+  const shouldReduceMotion = useReducedMotion();
   const loaderElement = useLoaderData() as PrecastElementDTO | null;
   const [element, setElement] = useState<PrecastElementDTO | null>(loaderElement);
   const [editing, setEditing] = useState(false);
@@ -50,10 +216,22 @@ export function PrecastElementDetail() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isTestResultDragActive, setIsTestResultDragActive] = useState(false);
   const [isPlanDocDragActive, setIsPlanDocDragActive] = useState(false);
+  const [testResultDocPage, setTestResultDocPage] = useState(1);
+  const [planDocPage, setPlanDocPage] = useState(1);
+  const [viewingDoc, setViewingDoc] = useState<ProjectDocumentDTO | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("details");
   const testResultInputRef = useRef<HTMLInputElement | null>(null);
   const planDocInputRef = useRef<HTMLInputElement | null>(null);
+  const sectionRefs = useRef<Record<Tab, HTMLElement | null>>({
+    details: null, testResults: null, planDocs: null, activity: null,
+  });
+  const isManualScrollingRef = useRef(false);
+
   const draftKey = `form:element-edit:${projectIdParam ?? loaderElement?.projectId ?? ""}:${elementIdParam ?? loaderElement?.id ?? ""}`;
   const [form, setForm] = useState(() => getDraft(draftKey, {
+    batch: loaderElement?.batch?.toString() ?? "",
+    serialNumber: loaderElement?.serialNumber ?? "",
     name: loaderElement?.name ?? "",
     location: loaderElement?.location ?? "",
     status: loaderElement?.status ?? "Casted",
@@ -76,12 +254,27 @@ export function PrecastElementDetail() {
     : "/projects";
   const elementUrl = element?.shortToken ? `${siteOrigin}/e/${element.shortToken}` : `${siteOrigin}${elementPath}`;
 
+  const tabs: { key: Tab; label: string; mobileLabel: string; icon: typeof FileText }[] = [
+    { key: "details",     label: "Details",        mobileLabel: "Details",  icon: FileText },
+    { key: "testResults", label: "Test Results",   mobileLabel: "Tests",    icon: FileText },
+    { key: "planDocs",    label: "Plan Documents", mobileLabel: "Plans",    icon: Layers },
+    ...(canViewActivity ? [{ key: "activity" as Tab, label: "Activity", mobileLabel: "Activity", icon: History }] : []),
+  ];
+
+  const closeScanner = useCallback(() => setScannerOpen(false), []);
+  const handleScannedElement = useCallback((path: string) => {
+    setScannerOpen(false);
+    void navigate(path);
+  }, [navigate]);
+
   useEffect(() => {
     setElement(loaderElement);
     if (loaderElement) {
       setTestResults(loaderElement.testResults);
       setPlanDocuments(loaderElement.planDocuments);
       setForm(getDraft(draftKey, {
+        batch: loaderElement.batch?.toString() ?? "",
+        serialNumber: loaderElement.serialNumber ?? "",
         name: loaderElement.name,
         location: loaderElement.location,
         status: loaderElement.status,
@@ -92,9 +285,7 @@ export function PrecastElementDetail() {
   }, [loaderElement, elementIdParam, draftKey]);
 
   useEffect(() => {
-    if (editing) {
-      setDraft(draftKey, form);
-    }
+    if (editing) setDraft(draftKey, form);
   }, [editing, form, draftKey]);
 
   useEffect(() => {
@@ -103,7 +294,6 @@ export function PrecastElementDetail() {
       setActivityTotalPages(1);
       return;
     }
-
     const run = async () => {
       setActivityLoading(true);
       try {
@@ -116,25 +306,79 @@ export function PrecastElementDetail() {
         setActivityLoading(false);
       }
     };
-
     void run();
   }, [activityPage, canViewActivity, resolvedElementId]);
 
+  // Scroll-tracking for sticky nav
+  useEffect(() => {
+    const trackedTabs = tabs.map((t) => t.key);
+    const onScroll = () => {
+      if (isManualScrollingRef.current) return;
+      const headerOffset = 170;
+      let current: Tab = trackedTabs[0] ?? "details";
+      for (const tab of trackedTabs) {
+        const el = sectionRefs.current[tab];
+        if (!el) continue;
+        if (el.getBoundingClientRect().top - headerOffset <= 0) current = tab;
+        else break;
+      }
+      setActiveTab((prev) => (prev === current ? prev : current));
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [canViewActivity]);
+
   if (!element) {
-    return <div className="min-h-screen flex items-center justify-center"><div className="text-center"><h2 className="text-brand-primary" style={{ fontSize: "1.5rem", fontWeight: 700 }}>Element Not Found</h2><NavLink to={projectPath} className="text-brand-secondary mt-4 inline-block">Back to Project</NavLink></div></div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f7fc]">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-brand-soft rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <FileText className="w-8 h-8 text-brand-secondary" />
+          </div>
+          <h2 className="text-brand-primary text-xl font-bold mb-2">Element Not Found</h2>
+          <NavLink to={projectPath} className="text-brand-secondary hover:underline text-sm">Back to Project</NavLink>
+        </div>
+      </div>
+    );
   }
 
   const isDelivered = element.status === "Delivered";
 
-  const visibleTestResults = useMemo(() => testResults.filter((doc) => !doc.isConfidential || canViewConfidential), [testResults, canViewConfidential]);
-  const visiblePlanDocuments = useMemo(() => planDocuments.filter((doc) => !doc.isConfidential || canViewConfidential), [planDocuments, canViewConfidential]);
+  const visibleTestResults = useMemo(
+    () => testResults.filter((doc) => !doc.isConfidential || canViewConfidential),
+    [testResults, canViewConfidential],
+  );
+  const visiblePlanDocuments = useMemo(
+    () => planDocuments.filter((doc) => !doc.isConfidential || canViewConfidential),
+    [planDocuments, canViewConfidential],
+  );
+
+  const scrollToSection = (tab: Tab) => {
+    isManualScrollingRef.current = true;
+    setActiveTab(tab);
+    const el = sectionRefs.current[tab];
+    if (el) {
+      const top = el.getBoundingClientRect().top + window.scrollY - 140;
+      window.scrollTo({ top, behavior: "smooth" });
+    }
+    window.setTimeout(() => { isManualScrollingRef.current = false; }, 450);
+  };
 
   const saveElement = async () => {
     if (!resolvedProjectId || !resolvedElementId) return;
-    setSaving(true);
-    setError(null);
+    const batchValue = (form.batch ?? "").trim();
+    const serialNumberValue = (form.serialNumber ?? "").trim();
+    const hasBatch = batchValue.length > 0;
+    const hasSerialNumber = serialNumberValue.length > 0;
+    if (hasBatch !== hasSerialNumber) { setError("Batch and serial number must both be assigned."); return; }
+    if (hasBatch && (!Number.isInteger(Number(batchValue)) || Number(batchValue) <= 0)) { setError("Batch must be a positive whole number."); return; }
+    if (hasSerialNumber && !/^\d+(?:-\d+)*$/.test(serialNumberValue)) { setError("Serial number must contain digits separated by single hyphens."); return; }
+    if ((element.batch != null || element.serialNumber != null) && !hasBatch) { setError("An assigned batch and serial number cannot be cleared."); return; }
+    setSaving(true); setError(null);
     try {
       await apiClient.updateElement(resolvedProjectId, resolvedElementId, {
+        ...(hasBatch ? { batch: Number(batchValue), serialNumber: serialNumberValue } : {}),
         name: form.name,
         location: form.location,
         status: form.status as "Casted" | "Delivered",
@@ -145,16 +389,14 @@ export function PrecastElementDetail() {
       clearDraft(draftKey);
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Failed to update element");
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const cancelEdit = () => {
-    setEditing(false);
-    setError(null);
-    clearDraft(draftKey);
+    setEditing(false); setError(null); clearDraft(draftKey);
     setForm({
+      batch: element.batch?.toString() ?? "",
+      serialNumber: element.serialNumber ?? "",
       name: element.name,
       location: element.location,
       status: element.status,
@@ -167,43 +409,27 @@ export function PrecastElementDetail() {
       const url = await apiClient.getDocumentDownloadUrl(documentId);
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (err) {
-      if (err instanceof ApiClientError && err.status === 403) {
-        window.alert("You do not have access to this confidential document.");
-        return;
-      }
+      if (err instanceof ApiClientError && err.status === 403) { window.alert("You do not have access to this confidential document."); return; }
       window.alert("Unable to download document right now.");
     }
   };
 
   const inferDocType = (fileName: string): "PDF" | "DOCX" | "XLSX" | "DWG" | "DXF" | "OTHER" => {
     const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
-    const map: Record<string, "PDF" | "DOCX" | "XLSX" | "DWG" | "DXF"> = {
-      pdf: "PDF",
-      doc: "DOCX",
-      docx: "DOCX",
-      xls: "XLSX",
-      xlsx: "XLSX",
-      dwg: "DWG",
-      dxf: "DXF",
-    };
+    const map: Record<string, "PDF" | "DOCX" | "XLSX" | "DWG" | "DXF"> = { pdf: "PDF", doc: "DOCX", docx: "DOCX", xls: "XLSX", xlsx: "XLSX", dwg: "DWG", dxf: "DXF" };
     return map[ext] ?? "OTHER";
   };
 
   const handleUpload = async (file: File, category: "TEST_RESULT" | "PLAN") => {
     if (!resolvedElementId) return;
-    setUploading(true);
-    setUploadError(null);
+    setUploading(true); setUploadError(null);
     try {
       const upload = await apiClient.createElementDocumentUploadUrl(resolvedElementId, {
         fileName: file.name,
         mimeType: file.type || "application/octet-stream",
         sizeBytes: file.size,
       });
-      await fetch(upload.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
+      await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
       const doc = await apiClient.finalizeElementDocument(resolvedElementId, {
         name: file.name,
         category,
@@ -213,275 +439,703 @@ export function PrecastElementDetail() {
         s3Key: upload.s3Key,
         isConfidential: false,
       });
-      if (category === "TEST_RESULT") {
-        setTestResults((prev) => [doc, ...prev]);
-      } else {
-        setPlanDocuments((prev) => [doc, ...prev]);
-      }
+      if (category === "TEST_RESULT") setTestResults((prev) => [doc, ...prev]);
+      else setPlanDocuments((prev) => [doc, ...prev]);
     } catch (err) {
       setUploadError(err instanceof ApiClientError ? err.message : "Upload failed");
-    } finally {
-      setUploading(false);
-    }
+    } finally { setUploading(false); }
   };
 
   const handleToggleConfidential = async (document: ProjectDocumentDTO, category: "TEST_RESULT" | "PLAN") => {
     try {
       const updated = await apiClient.updateElementDocument(document.id, { isConfidential: !document.isConfidential });
-      if (category === "TEST_RESULT") {
-        setTestResults((prev) => prev.map((doc) => (doc.id === updated.id ? updated : doc)));
-      } else {
-        setPlanDocuments((prev) => prev.map((doc) => (doc.id === updated.id ? updated : doc)));
-      }
-    } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Failed to update document");
-    }
+      if (category === "TEST_RESULT") setTestResults((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+      else setPlanDocuments((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+    } catch (err) { setError(err instanceof ApiClientError ? err.message : "Failed to update document"); }
   };
 
   const handleDeleteDocument = async (document: ProjectDocumentDTO, category: "TEST_RESULT" | "PLAN") => {
     if (!window.confirm(`Delete document "${document.name}"?`)) return;
     try {
       await apiClient.deleteElementDocument(document.id);
-      if (category === "TEST_RESULT") {
-        setTestResults((prev) => prev.filter((doc) => doc.id !== document.id));
-      } else {
-        setPlanDocuments((prev) => prev.filter((doc) => doc.id !== document.id));
-      }
-    } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Failed to delete document");
-    }
+      if (category === "TEST_RESULT") setTestResults((prev) => prev.filter((d) => d.id !== document.id));
+      else setPlanDocuments((prev) => prev.filter((d) => d.id !== document.id));
+    } catch (err) { setError(err instanceof ApiClientError ? err.message : "Failed to delete document"); }
   };
 
   const handleDelete = async () => {
     if (!resolvedProjectId || !resolvedElementId) return;
-    setDeleting(true);
-    setError(null);
+    setDeleting(true); setError(null);
     try {
       await apiClient.deleteElement(resolvedProjectId, resolvedElementId);
       void navigate(projectPath);
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Failed to delete element");
       setShowDeleteConfirm(false);
-    } finally {
-      setDeleting(false);
-    }
+    } finally { setDeleting(false); }
   };
 
+  const DOC_PAGE_SIZE = 8;
+  const visibleTestResultsPaged = visibleTestResults.slice((testResultDocPage - 1) * DOC_PAGE_SIZE, testResultDocPage * DOC_PAGE_SIZE);
+  const visiblePlanDocsPaged = visiblePlanDocuments.slice((planDocPage - 1) * DOC_PAGE_SIZE, planDocPage * DOC_PAGE_SIZE);
+  const testResultTotalPages = Math.ceil(visibleTestResults.length / DOC_PAGE_SIZE);
+  const planDocTotalPages = Math.ceil(visiblePlanDocuments.length / DOC_PAGE_SIZE);
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <div className="bg-brand-card min-h-screen">
-      <div className="bg-brand-primary py-10"><div className="max-w-[80rem] mx-auto px-6"><div className="flex items-center flex-wrap gap-1.5 text-white/75 text-sm mb-4"><NavLink to="/projects" className="hover:text-white transition">Projects</NavLink><ChevronRight className="w-3.5 h-3.5" /><NavLink to={projectPath} className="hover:text-white transition">{element.projectName}</NavLink><ChevronRight className="w-3.5 h-3.5" /><span className="text-white">{element.name}</span></div><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex flex-wrap items-center gap-2 mb-2"><span className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full ${isDelivered ? "bg-green-500/80 text-white" : "bg-brand-secondary/80 text-white"}`} style={{ fontWeight: 600 }}>{isDelivered ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}{element.status}</span></div><h1 className="text-white" style={{ fontSize: "2rem", fontWeight: 800 }}>{element.name}</h1></div>{canEdit && <div className="flex items-center gap-2"><button onClick={() => setEditing((v) => !v)} className="px-4 py-2 rounded-lg bg-brand-surface/20 text-white border border-white/30 backdrop-blur-sm text-sm flex items-center gap-2"><Pencil className="w-4 h-4" />{editing ? "Editing" : "Edit Element"}</button>{currentUser?.role === "admin" && <button onClick={() => setShowDeleteConfirm(true)} className="px-4 py-2 rounded-lg bg-red-500/80 text-white border border-red-400/50 backdrop-blur-sm text-sm flex items-center gap-2 hover:bg-red-600/80 transition"><Trash2 className="w-4 h-4" />Delete</button>}</div>}</div></div></div>
+    <div className="min-h-screen bg-[#f5f7fc]">
 
-      <div className="max-w-[80rem] mx-auto px-6 py-12 space-y-12">
-        {error && <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
+      {/* ── Hero ──────────────────────────────────────────────────────────── */}
+      <section className="relative h-[340px] sm:h-[400px] overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a1046] via-[#1a237e]/90 to-[#10184c]/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0d1550]/40 to-transparent" />
+        <div
+          className="absolute bottom-0 right-0 w-[30vw] h-[30vw] max-w-[400px] max-h-[400px] pointer-events-none"
+          style={{ background: "radial-gradient(circle, #29aae2 0%, transparent 70%)", opacity: 0.07, transform: "translate(30%, 30%)" }}
+        />
 
-        <section>
-          <SectionHeading icon={FileText} label="Element Details" />
-          <div className="mt-6 grid lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 grid sm:grid-cols-2 gap-4">
-              {editing ? (
-                <>
-                  <Input label="Element Name" value={form.name} onChange={(v) => setForm((s) => ({ ...s, name: v }))} />
-                  <Input label="Location" value={form.location} onChange={(v) => setForm((s) => ({ ...s, location: v }))} />
-                  <div><label className="text-xs text-brand-muted uppercase tracking-wider">Status</label><select className="mt-1 w-full border border-brand-border rounded-xl px-4 py-3 text-sm" value={form.status} onChange={(e) => setForm((s) => ({ ...s, status: e.target.value }))}><option value="Casted">Casted</option><option value="Delivered">Delivered</option></select></div>
-                  <Input label="Casting Date" type="date" value={form.castingDate} onChange={(v) => setForm((s) => ({ ...s, castingDate: v }))} />
-                  <div className="sm:col-span-2 flex justify-end gap-2"><button onClick={cancelEdit} className="px-4 py-2 rounded-lg border border-brand-border text-brand-muted text-sm flex items-center gap-1"><X className="w-4 h-4" />Cancel</button><button onClick={saveElement} disabled={saving} className="px-4 py-2 rounded-lg bg-brand-primary text-white text-sm flex items-center gap-1"><Save className="w-4 h-4" />{saving ? "Saving..." : "Save"}</button></div>
-                </>
-              ) : (
-                [{ label: "Element Name", value: element.name, icon: FileText },{ label: "Location", value: element.location, icon: MapPin },{ label: "Status", value: element.status, icon: CheckCircle2, badge: isDelivered ? "bg-green-100 text-green-700" : "bg-brand-highlight text-brand-secondary" },{ label: "Casting Date", value: new Date(element.castingDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }), icon: Calendar },{ label: "Project", value: element.projectName, icon: ExternalLink, isLink: true, linkTo: projectPath },...(canEdit ? [{ label: "Created By", value: element.createdBy, icon: User },{ label: "Created Date", value: new Date(element.createdDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }), icon: Calendar },{ label: "Last Updated", value: new Date(element.lastUpdated).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }), icon: Clock }] : [])].map((item) => (
-                  <div key={item.label} className="bg-brand-surface border border-brand-border rounded-xl p-4 shadow-sm"><div className="flex items-center gap-1.5 text-brand-muted text-xs mb-1.5"><item.icon className="w-3.5 h-3.5" />{item.label}</div>{"badge" in item && item.badge ? <span className={`inline-block px-2.5 py-0.5 rounded-full text-sm ${item.badge}`} style={{ fontWeight: 600 }}>{item.value}</span> : "isLink" in item && item.isLink && "linkTo" in item ? <NavLink to={item.linkTo as string} className="text-brand-secondary hover:text-brand-primary flex items-center gap-1 text-sm" style={{ fontWeight: 600 }}>{item.value}<ExternalLink className="w-3 h-3" /></NavLink> : <div className="text-brand-primary text-sm" style={{ fontWeight: 600 }}>{item.value}</div>}</div>
-                ))
-              )}
+        <div className="relative h-full max-w-[80rem] mx-auto px-4 sm:px-6 flex flex-col justify-between pt-5 sm:pt-8 pb-0 w-full">
+          {/* Breadcrumb row */}
+          <motion.div
+            className="flex items-center gap-3"
+            variants={shouldReduceMotion ? undefined : heroContainerVariants}
+            initial="hidden"
+            animate="animate"
+          >
+            <motion.div
+              className="flex min-w-0 flex-1 items-center gap-2 text-white/75 text-sm"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              <NavLink to="/projects" className="hover:text-white transition-colors shrink-0">Projects</NavLink>
+              <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              <NavLink to={projectPath} className="hover:text-white transition-colors min-w-0 truncate">{element.projectName}</NavLink>
+              <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              <span className="text-white/95 min-w-0 truncate">{element.name}</span>
+            </motion.div>
+
+          </motion.div>
+
+          {/* Hero content */}
+          <motion.div
+            className="pb-12 sm:pb-16"
+            variants={shouldReduceMotion ? undefined : heroContainerVariants}
+            initial="hidden"
+            animate="animate"
+          >
+            <motion.div
+              className="flex flex-wrap items-center gap-2 mb-3"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              <span className={`inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-semibold ${
+                isDelivered ? "bg-green-500/90 text-white" : "bg-brand-secondary/90 text-white"
+              }`}>
+                {isDelivered ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                {element.status}
+              </span>
+              <span className="text-[11px] text-white/60 font-mono tracking-wider bg-white/10 px-2.5 py-1 rounded-full">
+                {element.batch != null && element.serialNumber != null
+                  ? `Batch ${element.batch} · Serial ${element.serialNumber}`
+                  : "Unassigned"}
+              </span>
+            </motion.div>
+
+            <motion.h1
+              className="text-white font-extrabold leading-none mb-3"
+              style={{ fontSize: "clamp(1.6rem, 3.5vw, 2.6rem)" }}
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              {element.name}
+            </motion.h1>
+
+            <motion.div
+              className="flex flex-col items-start gap-2 text-white/80 text-[13px] sm:flex-row sm:flex-wrap sm:items-center sm:gap-4 sm:text-sm"
+              variants={shouldReduceMotion ? undefined : heroItemVariants}
+            >
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-brand-secondary" />
+                {element.location}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-brand-secondary" />
+                Cast: {new Date(element.castingDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-brand-secondary" />
+                {element.projectName}
+              </span>
+            </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Stats strip ─────────────────────────────────────────────────── */}
+      <div className="hidden sm:block max-w-[80rem] mx-auto px-6 relative z-10 -mt-10">
+        <motion.div
+          className="bg-white border border-brand-border/60 rounded-2xl shadow-[0_8px_40px_rgba(26,35,126,0.12)] grid grid-cols-2 md:grid-cols-4 overflow-hidden"
+          initial={shouldReduceMotion ? undefined : { opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: EASE_STRUCTURAL, delay: 0.3 }}
+        >
+          {[
+            { label: "Status", value: element.status, icon: isDelivered ? CheckCircle2 : Clock, accent: isDelivered ? "text-green-700" : "text-brand-secondary" },
+            { label: "Batch / Serial", value: element.batch != null && element.serialNumber != null ? `Batch ${element.batch} · ${element.serialNumber}` : "Unassigned", icon: FileText, accent: null },
+            { label: "Casting Date", value: new Date(element.castingDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), icon: Calendar, accent: null },
+            { label: "Location", value: element.location, icon: MapPin, accent: null },
+          ].map((stat, i) => (
+            <div
+              key={stat.label}
+              className={`min-w-0 px-4 py-3.5 sm:px-5 sm:py-4 flex flex-col gap-1 border-brand-border/40 ${i < 2 ? "border-b md:border-b-0" : ""} ${i === 0 || i === 2 ? "border-r" : ""} ${i === 1 ? "md:border-r" : ""}`}
+            >
+              <div className="flex min-w-0 items-center gap-1.5 text-brand-muted text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.08em] sm:tracking-wider">
+                <stat.icon className="w-3 h-3 shrink-0" />
+                {stat.label}
+              </div>
+              <div className={`font-bold text-base sm:text-lg leading-tight break-words ${stat.accent ?? "text-brand-primary"}`}>
+                {stat.value}
+              </div>
             </div>
-
-            <div className="lg:col-span-1"><div className="bg-brand-surface border border-brand-border rounded-xl p-6 shadow-sm sticky top-36"><div className="flex items-center gap-2 mb-4"><QrCode className="w-5 h-5 text-brand-secondary" /><h3 className="text-brand-primary text-sm" style={{ fontWeight: 700 }}>Element QR Code</h3></div><QRCodeDisplay value={elementUrl} markNumber={element.name} size={200} /><div className="bg-brand-card rounded-lg p-3 mt-4"><div className="text-brand-muted text-xs mb-1">Element URL</div><div className="text-brand-body text-xs break-all leading-relaxed">{elementUrl}</div></div></div></div>
-          </div>
-        </section>
-
-        <section>
-          <SectionHeading icon={FileText} label="Test Results" />
-          <p className="text-brand-muted text-sm mt-1 mb-4">All compressive strength tests, slump tests, and quality assurance documents for this element.</p>
-          {uploadError && <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{uploadError}</div>}
-          {canEdit && (
-            <div className="mb-4">
-              <div
-                className={`rounded-2xl border-2 border-dashed p-5 text-center transition ${isTestResultDragActive ? "border-brand-accent bg-brand-soft" : "border-gray-300 bg-brand-card"}`}
-                onDragOver={(e) => { e.preventDefault(); setIsTestResultDragActive(true); }}
-                onDragLeave={(e) => { e.preventDefault(); setIsTestResultDragActive(false); }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsTestResultDragActive(false);
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) void handleUpload(file, "TEST_RESULT");
-                }}
-              >
-                <div className="flex justify-center mb-2"><FileText className="w-8 h-8 text-brand-muted" /></div>
-                <p className="text-sm text-brand-primary" style={{ fontWeight: 700 }}>Drag files here or browse</p>
-                <button
-                  type="button"
-                  disabled={uploading}
-                  className="mt-3 px-4 py-2 rounded-lg border border-brand-border text-brand-primary bg-brand-surface text-sm disabled:opacity-60"
-                  onClick={() => testResultInputRef.current?.click()}
-                >
-                  {uploading ? "Uploading..." : "Browse files"}
-                </button>
-                <input
-                  ref={testResultInputRef}
-                  type="file"
-                  className="hidden"
-                  disabled={uploading}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void handleUpload(file, "TEST_RESULT");
-                    e.currentTarget.value = "";
-                  }}
-                />
-              </div>
-              <p className="mt-2 text-xs text-brand-muted">Supported formats: pdf, docx, xlsx, dwg, dxf &middot; Max size: 10 MB</p>
-            </div>
-          )}
-          <div className="space-y-3">
-            {visibleTestResults.map((doc) => (
-              <div key={doc.id} className="bg-brand-surface border border-brand-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="text-brand-primary text-sm" style={{ fontWeight: 700 }}>{doc.name}</div>
-                  <div className="text-xs text-brand-muted">{doc.type} &middot; {doc.size} &middot; {doc.date}</div>
-                  {doc.isConfidential && (
-                    <div className="mt-1"><span className="text-[10px] uppercase tracking-wider text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded">Confidential</span></div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
-                  <button onClick={() => void handleDownload(doc.id)} className="px-3 py-1.5 rounded-md bg-brand-accent text-brand-primary text-xs flex items-center gap-1"><Download className="w-3.5 h-3.5" />Download</button>
-                  {canEdit && (
-                    <>
-                      <button onClick={() => void handleToggleConfidential(doc, "TEST_RESULT")} className="px-3 py-1.5 rounded-md bg-brand-highlight text-brand-body text-xs">{doc.isConfidential ? "Make Public" : "Make Confidential"}</button>
-                      <button onClick={() => void handleDeleteDocument(doc, "TEST_RESULT")} className="px-3 py-1.5 rounded-md bg-red-500 text-white text-xs flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" />Delete</button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-            {visibleTestResults.length === 0 && <div className="text-sm text-brand-muted">No test results uploaded yet.</div>}
-          </div>
-        </section>
-
-        <section>
-          <SectionHeading icon={FileText} label="Plan Documents" />
-          <p className="text-brand-muted text-sm mt-1 mb-4">Fabrication drawings, reinforcement plans, and stripping documents for this element.</p>
-          {canEdit && (
-            <div className="mb-4">
-              <div
-                className={`rounded-2xl border-2 border-dashed p-5 text-center transition ${isPlanDocDragActive ? "border-brand-accent bg-brand-soft" : "border-gray-300 bg-brand-card"}`}
-                onDragOver={(e) => { e.preventDefault(); setIsPlanDocDragActive(true); }}
-                onDragLeave={(e) => { e.preventDefault(); setIsPlanDocDragActive(false); }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsPlanDocDragActive(false);
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) void handleUpload(file, "PLAN");
-                }}
-              >
-                <div className="flex justify-center mb-2"><FileText className="w-8 h-8 text-brand-muted" /></div>
-                <p className="text-sm text-brand-primary" style={{ fontWeight: 700 }}>Drag files here or browse</p>
-                <button
-                  type="button"
-                  disabled={uploading}
-                  className="mt-3 px-4 py-2 rounded-lg border border-brand-border text-brand-primary bg-brand-surface text-sm disabled:opacity-60"
-                  onClick={() => planDocInputRef.current?.click()}
-                >
-                  {uploading ? "Uploading..." : "Browse files"}
-                </button>
-                <input
-                  ref={planDocInputRef}
-                  type="file"
-                  className="hidden"
-                  disabled={uploading}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void handleUpload(file, "PLAN");
-                    e.currentTarget.value = "";
-                  }}
-                />
-              </div>
-              <p className="mt-2 text-xs text-brand-muted">Supported formats: pdf, docx, xlsx, dwg, dxf &middot; Max size: 10 MB</p>
-            </div>
-          )}
-          <div className="space-y-3">
-            {visiblePlanDocuments.map((doc) => (
-              <div key={doc.id} className="bg-brand-surface border border-brand-border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <div className="text-brand-primary text-sm" style={{ fontWeight: 700 }}>{doc.name}</div>
-                  <div className="text-xs text-brand-muted">{doc.type} &middot; {doc.size} &middot; {doc.date}</div>
-                  {doc.isConfidential && (
-                    <div className="mt-1"><span className="text-[10px] uppercase tracking-wider text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded">Confidential</span></div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap justify-center sm:justify-end">
-                  <button onClick={() => void handleDownload(doc.id)} className="px-3 py-1.5 rounded-md bg-brand-accent text-brand-primary text-xs flex items-center gap-1"><Download className="w-3.5 h-3.5" />Download</button>
-                  {canEdit && (
-                    <>
-                      <button onClick={() => void handleToggleConfidential(doc, "PLAN")} className="px-3 py-1.5 rounded-md bg-brand-highlight text-brand-body text-xs">{doc.isConfidential ? "Make Public" : "Make Confidential"}</button>
-                      <button onClick={() => void handleDeleteDocument(doc, "PLAN")} className="px-3 py-1.5 rounded-md bg-red-500 text-white text-xs flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" />Delete</button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
-            {visiblePlanDocuments.length === 0 && <div className="text-sm text-brand-muted">No plan documents uploaded yet.</div>}
-          </div>
-        </section>
-
-        {canViewActivity && (
-          <section><SectionHeading icon={History} label="Activity History" /><p className="text-brand-muted text-sm mt-1 mb-6">Complete log of all actions, updates, and status changes for this precast element.</p>{activityLoading ? <div className="text-sm text-brand-muted">Loading activity...</div> : <div className="relative"><div className="absolute left-5 top-0 bottom-0 w-px bg-brand-border" /><div className="space-y-5 pl-14">{activityItems.map((act) => { const style = activityStyles[act.type] ?? activityStyles.updated; return <div key={act.id} className="relative"><div className={`absolute -left-9 top-2 w-3 h-3 rounded-full border-2 border-white ${style.dot}`} /><div className="bg-brand-surface border border-brand-border rounded-xl p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-2 mb-2"><span className={`text-xs px-2.5 py-0.5 rounded-full ${style.badge}`} style={{ fontWeight: 600 }}>{act.action}</span><span className="text-brand-muted text-xs">{act.date} - {act.time}</span></div><p className="text-brand-muted text-sm">{act.description}</p><div className="flex items-center gap-1.5 text-brand-muted text-xs mt-2"><User className="w-3 h-3" />{act.user} - {act.role}</div></div></div>; })}</div></div>}<div className="mt-5 flex items-center justify-between"><button disabled={activityPage <= 1} onClick={() => setActivityPage((p) => Math.max(1, p - 1))} className="px-3 py-1.5 rounded-lg border border-brand-border text-sm disabled:opacity-50">Previous</button><span className="text-xs text-brand-muted">Page {activityPage} of {activityTotalPages}</span><button disabled={activityPage >= activityTotalPages} onClick={() => setActivityPage((p) => Math.min(activityTotalPages, p + 1))} className="px-3 py-1.5 rounded-lg border border-brand-border text-sm disabled:opacity-50">Next</button></div></section>
-        )}
+          ))}
+        </motion.div>
       </div>
 
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="px-6 pt-6 pb-2 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-brand-primary" style={{ fontWeight: 700, fontSize: "1.1rem" }}>Delete Element</h3>
-                <p className="text-brand-muted text-sm mt-0.5">This action cannot be undone.</p>
-              </div>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-brand-body text-sm">
-                Are you sure you want to delete <span className="font-semibold text-brand-primary">{element.name}</span>?
-                All associated documents and activity history will be permanently removed.
-              </p>
-            </div>
-            <div className="px-6 pb-6 flex justify-end gap-3">
+      {/* ── Sticky section navigation ───────────────────────────────────── */}
+      <div className="sticky top-[72px] sm:top-[80px] z-40 bg-[#f5f7fc]/95 backdrop-blur-md">
+        <div className="max-w-[80rem] mx-auto border-b border-brand-border/40">
+          {/* Mobile grid */}
+          <div
+            className="grid md:hidden px-2"
+            style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+          >
+            {tabs.map((t) => (
               <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleting}
-                className="px-4 py-2 rounded-xl border border-brand-border text-brand-muted text-sm hover:bg-brand-surface transition"
+                key={`mobile-${t.key}`}
+                onClick={() => scrollToSection(t.key)}
+                className={`relative flex min-w-0 min-h-[58px] flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-semibold transition-colors cursor-pointer ${
+                  activeTab === t.key ? "text-brand-primary" : "text-brand-muted hover:text-brand-primary"
+                }`}
+                aria-label={`Go to ${t.label}`}
               >
-                Cancel
+                <span className={`flex h-7 w-8 items-center justify-center rounded-lg transition-all ${
+                  activeTab === t.key ? "bg-brand-primary text-white shadow-sm" : "text-brand-muted"
+                }`}>
+                  <t.icon className="w-3.5 h-3.5" />
+                </span>
+                <span className="w-full truncate px-0.5 text-center">{t.mobileLabel}</span>
+                {activeTab === t.key && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-brand-primary" />}
               </button>
+            ))}
+          </div>
+
+          {/* Desktop pill tabs */}
+          <div className="hidden md:flex items-center justify-center gap-1.5 px-6 py-3">
+            {tabs.map((t) => (
               <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm flex items-center gap-2 hover:bg-red-700 transition disabled:opacity-60"
-                style={{ fontWeight: 600 }}
+                key={`desktop-${t.key}`}
+                onClick={() => scrollToSection(t.key)}
+                className={`relative flex min-h-10 items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  activeTab === t.key
+                    ? "bg-brand-primary text-white shadow-sm"
+                    : "text-brand-muted hover:text-brand-primary hover:bg-brand-soft"
+                }`}
               >
-                <Trash2 className="w-4 h-4" />
-                {deleting ? "Deleting..." : "Delete Element"}
+                <t.icon className="w-3.5 h-3.5" />
+                {t.label}
               </button>
-            </div>
+            ))}
           </div>
         </div>
-      )}
+      </div>
+
+      {/* ── Page content ────────────────────────────────────────────────── */}
+      <div className="max-w-[80rem] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-12 sm:pb-16 space-y-12 sm:space-y-16">
+
+        {error && (
+          <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 flex items-center gap-2">
+            <X className="w-4 h-4 shrink-0" /> {error}
+          </div>
+        )}
+
+        {/* ── Section: Element Details ─────────────────────────────────── */}
+        <section ref={(el) => { sectionRefs.current.details = el; }}>
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+            <div className="min-w-0 lg:col-span-2">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <SectionHeading icon={FileText} label="Element Details" />
+
+                {canEdit && (
+                  <div className="flex shrink-0 items-center gap-2">
+                    {currentUser?.role === "admin" && (
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={deleting}
+                        className="min-h-10 flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg border border-red-200 bg-white text-red-600 text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">{deleting ? "Deleting…" : "Delete"}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setEditing((v) => !v)}
+                      className={`min-h-10 flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
+                        editing
+                          ? "bg-brand-primary text-white border-brand-primary hover:bg-brand-primary-hover"
+                          : "bg-white text-brand-primary border-brand-border hover:bg-brand-soft"
+                      }`}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{editing ? "Editing…" : "Edit Details"}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <AnimatePresence mode="wait">
+                {editing ? (
+                  <motion.div
+                key="edit-form"
+                initial={shouldReduceMotion ? undefined : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={shouldReduceMotion ? undefined : { opacity: 0, y: -8 }}
+                transition={transitionFast}
+                className="mt-4 sm:mt-6 bg-white border border-brand-border/60 rounded-2xl p-4 sm:p-6 shadow-sm"
+              >
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <EditField label="Batch">
+                    <input type="number" value={form.batch ?? ""} onChange={(e) => setForm((s) => ({ ...s, batch: e.target.value }))} className={inputCls} />
+                  </EditField>
+                  <EditField label="Serial Number">
+                    <input type="text" value={form.serialNumber ?? ""} onChange={(e) => setForm((s) => ({ ...s, serialNumber: e.target.value }))} className={inputCls} />
+                  </EditField>
+                  <EditField label="Element Name">
+                    <input type="text" value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} className={inputCls} />
+                  </EditField>
+                  <EditField label="Location">
+                    <input type="text" value={form.location} onChange={(e) => setForm((s) => ({ ...s, location: e.target.value }))} className={inputCls} />
+                  </EditField>
+                  <EditField label="Status">
+                    <select className={inputCls} value={form.status} onChange={(e) => setForm((s) => ({ ...s, status: e.target.value as "Casted" | "Delivered" }))}>
+                      <option value="Casted">Casted</option>
+                      <option value="Delivered">Delivered</option>
+                    </select>
+                  </EditField>
+                  <EditField label="Casting Date">
+                    <input type="date" value={form.castingDate} onChange={(e) => setForm((s) => ({ ...s, castingDate: e.target.value }))} className={inputCls} />
+                  </EditField>
+                </div>
+                <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-brand-border/40">
+                  <button onClick={cancelEdit} className="min-h-11 px-4 py-2 rounded-lg border border-brand-border text-brand-muted text-sm flex items-center gap-1.5 hover:bg-[#f5f7fc] transition-colors cursor-pointer">
+                    <X className="w-4 h-4" /> Cancel
+                  </button>
+                  <button onClick={() => void saveElement()} disabled={saving} className="min-h-11 px-5 py-2 rounded-lg bg-brand-primary text-white text-sm font-semibold flex items-center gap-1.5 hover:bg-brand-primary-hover transition-colors disabled:opacity-50 cursor-pointer">
+                    <Save className="w-4 h-4" /> {saving ? "Saving…" : "Save Changes"}
+                  </button>
+                </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                key="view-details"
+                initial={shouldReduceMotion ? undefined : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={shouldReduceMotion ? undefined : { opacity: 0 }}
+                transition={transitionFast}
+                    className="mt-4 sm:mt-6"
+              >
+                {/* Metadata cards */}
+                <motion.div
+                  className="grid gap-3 sm:grid-cols-2"
+                  variants={shouldReduceMotion ? undefined : staggerContainerVariants}
+                  initial="hidden"
+                  whileInView="visible"
+                  viewport={VIEWPORT}
+                >
+                  {[
+                    { label: "Batch", value: element.batch?.toString() ?? "Unassigned", icon: FileText },
+                    { label: "Serial Number", value: element.serialNumber ?? "Unassigned", icon: FileText },
+                    { label: "Element Name", value: element.name, icon: FileText },
+                    { label: "Location", value: element.location, icon: MapPin },
+                    {
+                      label: "Status",
+                      value: element.status,
+                      icon: isDelivered ? CheckCircle2 : Clock,
+                      badge: isDelivered ? "bg-green-100 text-green-700" : "bg-brand-highlight text-brand-secondary",
+                    },
+                    {
+                      label: "Casting Date",
+                      value: new Date(element.castingDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+                      icon: Calendar,
+                    },
+                    ...(canEdit ? [
+                      { label: "Created By", value: element.createdBy, icon: User },
+                      { label: "Created Date", value: new Date(element.createdDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }), icon: Calendar },
+                      { label: "Last Updated", value: new Date(element.lastUpdated).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }), icon: Clock },
+                    ] : []),
+                  ].map((item) => (
+                    <motion.div
+                      key={item.label}
+                      className="min-w-0 bg-white border border-brand-border/50 rounded-xl p-3 sm:p-4 hover:shadow-sm hover:border-brand-secondary/30 transition-all"
+                      variants={shouldReduceMotion ? undefined : staggerChildVariants}
+                    >
+                      <div className="flex min-w-0 items-center gap-1.5 text-brand-muted text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.06em] sm:tracking-wider mb-1.5">
+                        <item.icon className="w-3 h-3 shrink-0" />
+                        {item.label}
+                      </div>
+                      {"badge" in item && item.badge ? (
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold ${item.badge}`}>{item.value}</span>
+                      ) : (
+                        <div className="text-brand-primary text-xs sm:text-sm font-semibold leading-snug break-words">{item.value}</div>
+                      )}
+                    </motion.div>
+                  ))}
+                </motion.div>
+
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* QR Code card — aligned with the section title on desktop */}
+            <div className="hidden lg:block lg:col-span-1">
+              <div className="bg-white border border-brand-border/50 rounded-2xl p-5 sm:p-6 shadow-sm sticky top-36">
+                <div className="flex items-center gap-2 mb-4">
+                  <QrCode className="w-4 h-4 text-brand-secondary" />
+                  <span className="text-brand-primary text-sm font-semibold">Element QR Code</span>
+                </div>
+                <QRCodeDisplay value={elementUrl} batch={element.batch} serialNumber={element.serialNumber} fallbackName={element.name} size={200} />
+                <div className="bg-[#f5f7fc] rounded-lg p-3 mt-4">
+                  <div className="text-brand-muted text-[10px] font-medium uppercase tracking-wider mb-1">Element URL</div>
+                  <div className="text-brand-body text-xs break-all leading-relaxed">{elementUrl}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Section: Test Results ─────────────────────────────────────── */}
+        <motion.section
+          ref={(el) => { sectionRefs.current.testResults = el; }}
+          variants={shouldReduceMotion ? undefined : fadeUpVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={VIEWPORT}
+        >
+          <SectionHeading icon={FileText} label="Test Results" />
+          <p className="text-brand-muted text-sm mt-1 mb-4">Compressive strength tests, slump tests, and quality assurance documents.</p>
+
+          {uploadError && (
+            <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 flex items-center gap-2">
+              <X className="w-4 h-4 shrink-0" /> {uploadError}
+            </div>
+          )}
+
+          {canEdit && (
+            <div className="mb-4">
+              <div
+                className={`rounded-2xl border-2 border-dashed p-5 sm:p-6 text-center transition-colors ${
+                  isTestResultDragActive ? "border-brand-primary bg-brand-soft" : "border-brand-border hover:border-brand-secondary/60 bg-white"
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setIsTestResultDragActive(true); }}
+                onDragLeave={(e) => { e.preventDefault(); setIsTestResultDragActive(false); }}
+                onDrop={(e) => { e.preventDefault(); setIsTestResultDragActive(false); const file = e.dataTransfer.files?.[0]; if (file) void handleUpload(file, "TEST_RESULT"); }}
+              >
+                <div className="flex justify-center mb-2">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isTestResultDragActive ? "bg-brand-primary/10" : "bg-[#f5f7fc]"}`}>
+                    <Upload className="w-5 h-5 text-brand-secondary" />
+                  </div>
+                </div>
+                <p className="text-brand-primary text-sm font-semibold mb-1">
+                  {isTestResultDragActive ? "Drop files here" : <><span className="sm:hidden">Choose files to upload</span><span className="hidden sm:inline">Drag files here or browse</span></>}
+                </p>
+                <p className="text-brand-muted text-xs mb-3">PDF, DOCX, XLSX, DWG, DXF — max 10 MB</p>
+                <button
+                  type="button"
+                  disabled={uploading}
+                  className="min-h-11 px-5 py-2 rounded-lg border border-brand-border text-brand-primary bg-white text-sm font-medium hover:bg-[#f5f7fc] transition-colors disabled:opacity-50 cursor-pointer"
+                  onClick={() => testResultInputRef.current?.click()}
+                >
+                  {uploading ? "Uploading…" : "Browse Files"}
+                </button>
+                <input ref={testResultInputRef} type="file" className="hidden" disabled={uploading}
+                  onChange={(e) => { const file = e.target.files?.[0]; if (file) void handleUpload(file, "TEST_RESULT"); e.currentTarget.value = ""; }} />
+              </div>
+            </div>
+          )}
+
+          {visibleTestResults.length === 0 ? (
+            <div className="bg-white border border-dashed border-brand-border rounded-2xl p-8 text-center">
+              <FileText className="w-7 h-7 text-brand-muted mx-auto mb-2 opacity-40" />
+              <p className="text-brand-muted text-sm">No test results uploaded yet.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {visibleTestResultsPaged.map((doc) => (
+                  <div
+                    key={doc.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setViewingDoc(doc)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setViewingDoc(doc); }}
+                    className="bg-white rounded-xl border border-brand-border/60 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col cursor-pointer"
+                  >
+                    <DocPreviewPanel doc={doc} onGetUrl={() => apiClient.getDocumentDownloadUrl(doc.id)} />
+                    <div className="flex flex-col flex-1 p-2.5 sm:p-3 min-w-0">
+                      <p className="text-brand-primary text-xs sm:text-sm font-semibold leading-snug line-clamp-2 mb-1.5 min-h-[2.4em]">{doc.name}</p>
+                      <div className="flex items-center gap-1 flex-wrap mb-2.5">
+                        <span className="text-[9px] sm:text-[10px] font-bold tracking-widest uppercase text-brand-muted/70">{doc.size}</span>
+                        <span className="w-0.5 h-0.5 bg-brand-border rounded-full" />
+                        <span className="text-[9px] sm:text-[10px] text-brand-muted/60">{doc.date}</span>
+                      </div>
+                      <div className="mt-auto flex items-center justify-between border-t border-brand-border/40 pt-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); void handleDownload(doc.id); }}
+                          className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-brand-muted hover:text-brand-primary hover:bg-brand-soft transition-colors cursor-pointer"
+                          title="Download"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                        {canEdit && (
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleToggleConfidential(doc, "TEST_RESULT"); }}
+                              className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${doc.isConfidential ? "text-red-500 bg-red-50 hover:bg-red-100" : "text-brand-muted hover:text-brand-primary hover:bg-brand-soft"}`}
+                              title={doc.isConfidential ? "Make Public" : "Make Confidential"}
+                            >
+                              <Lock className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleDeleteDocument(doc, "TEST_RESULT"); }}
+                              className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-brand-muted hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {testResultTotalPages > 1 && (
+                <Paginator page={testResultDocPage} totalPages={testResultTotalPages} onPageChange={setTestResultDocPage} />
+              )}
+            </>
+          )}
+        </motion.section>
+
+        {/* ── Section: Plan Documents ───────────────────────────────────── */}
+        <motion.section
+          ref={(el) => { sectionRefs.current.planDocs = el; }}
+          variants={shouldReduceMotion ? undefined : fadeUpVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={VIEWPORT}
+        >
+          <SectionHeading icon={Layers} label="Plan Documents" />
+          <p className="text-brand-muted text-sm mt-1 mb-4">Fabrication drawings, reinforcement plans, and stripping documents.</p>
+
+          {canEdit && (
+            <div className="mb-4">
+              <div
+                className={`rounded-2xl border-2 border-dashed p-5 sm:p-6 text-center transition-colors ${
+                  isPlanDocDragActive ? "border-brand-primary bg-brand-soft" : "border-brand-border hover:border-brand-secondary/60 bg-white"
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setIsPlanDocDragActive(true); }}
+                onDragLeave={(e) => { e.preventDefault(); setIsPlanDocDragActive(false); }}
+                onDrop={(e) => { e.preventDefault(); setIsPlanDocDragActive(false); const file = e.dataTransfer.files?.[0]; if (file) void handleUpload(file, "PLAN"); }}
+              >
+                <div className="flex justify-center mb-2">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isPlanDocDragActive ? "bg-brand-primary/10" : "bg-[#f5f7fc]"}`}>
+                    <Upload className="w-5 h-5 text-brand-secondary" />
+                  </div>
+                </div>
+                <p className="text-brand-primary text-sm font-semibold mb-1">
+                  {isPlanDocDragActive ? "Drop files here" : <><span className="sm:hidden">Choose files to upload</span><span className="hidden sm:inline">Drag files here or browse</span></>}
+                </p>
+                <p className="text-brand-muted text-xs mb-3">PDF, DOCX, XLSX, DWG, DXF — max 10 MB</p>
+                <button
+                  type="button"
+                  disabled={uploading}
+                  className="min-h-11 px-5 py-2 rounded-lg border border-brand-border text-brand-primary bg-white text-sm font-medium hover:bg-[#f5f7fc] transition-colors disabled:opacity-50 cursor-pointer"
+                  onClick={() => planDocInputRef.current?.click()}
+                >
+                  {uploading ? "Uploading…" : "Browse Files"}
+                </button>
+                <input ref={planDocInputRef} type="file" className="hidden" disabled={uploading}
+                  onChange={(e) => { const file = e.target.files?.[0]; if (file) void handleUpload(file, "PLAN"); e.currentTarget.value = ""; }} />
+              </div>
+            </div>
+          )}
+
+          {visiblePlanDocuments.length === 0 ? (
+            <div className="bg-white border border-dashed border-brand-border rounded-2xl p-8 text-center">
+              <Layers className="w-7 h-7 text-brand-muted mx-auto mb-2 opacity-40" />
+              <p className="text-brand-muted text-sm">No plan documents uploaded yet.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                {visiblePlanDocsPaged.map((doc) => (
+                  <div
+                    key={doc.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setViewingDoc(doc)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setViewingDoc(doc); }}
+                    className="bg-white rounded-xl border border-brand-border/60 overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col cursor-pointer"
+                  >
+                    <DocPreviewPanel doc={doc} onGetUrl={() => apiClient.getDocumentDownloadUrl(doc.id)} />
+                    <div className="flex flex-col flex-1 p-2.5 sm:p-3 min-w-0">
+                      <p className="text-brand-primary text-xs sm:text-sm font-semibold leading-snug line-clamp-2 mb-1.5 min-h-[2.4em]">{doc.name}</p>
+                      <div className="flex items-center gap-1 flex-wrap mb-2.5">
+                        <span className="text-[9px] sm:text-[10px] font-bold tracking-widest uppercase text-brand-muted/70">{doc.size}</span>
+                        <span className="w-0.5 h-0.5 bg-brand-border rounded-full" />
+                        <span className="text-[9px] sm:text-[10px] text-brand-muted/60">{doc.date}</span>
+                      </div>
+                      <div className="mt-auto flex items-center justify-between border-t border-brand-border/40 pt-2">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); void handleDownload(doc.id); }}
+                          className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-brand-muted hover:text-brand-primary hover:bg-brand-soft transition-colors cursor-pointer"
+                          title="Download"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
+                        {canEdit && (
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleToggleConfidential(doc, "PLAN"); }}
+                              className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg transition-colors cursor-pointer ${doc.isConfidential ? "text-red-500 bg-red-50 hover:bg-red-100" : "text-brand-muted hover:text-brand-primary hover:bg-brand-soft"}`}
+                              title={doc.isConfidential ? "Make Public" : "Make Confidential"}
+                            >
+                              <Lock className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void handleDeleteDocument(doc, "PLAN"); }}
+                              className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-lg text-brand-muted hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {planDocTotalPages > 1 && (
+                <Paginator page={planDocPage} totalPages={planDocTotalPages} onPageChange={setPlanDocPage} />
+              )}
+            </>
+          )}
+        </motion.section>
+
+        {/* ── Section: Activity History ─────────────────────────────────── */}
+        {canViewActivity && (
+          <motion.section
+            ref={(el) => { sectionRefs.current.activity = el; }}
+            variants={shouldReduceMotion ? undefined : fadeUpVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={VIEWPORT}
+          >
+            <SectionHeading icon={History} label="Activity History" />
+            <p className="text-brand-muted text-sm mt-1 mb-6">Complete log of all actions, updates, and status changes for this element.</p>
+
+            {activityLoading ? (
+              <div className="flex items-center gap-2 text-brand-muted text-sm">
+                <div className="w-4 h-4 border-2 border-brand-border border-t-brand-secondary rounded-full animate-spin" />
+                Loading activity…
+              </div>
+            ) : (
+              <div className="relative">
+                <div className="absolute left-1.5 sm:left-4 top-2 bottom-2 w-px bg-brand-border" />
+                <div className="space-y-3 sm:space-y-4 pl-7 sm:pl-12">
+                  {activityItems.map((act) => {
+                    const style = activityIcons[act.type] ?? activityIcons.updated;
+                    return (
+                      <div key={act.id} className="relative">
+                        <div className={`absolute -left-[25px] sm:-left-8 top-4 w-2.5 h-2.5 rounded-full border-2 border-[#f5f7fc] ${style.dot}`} />
+                        <div className="bg-white border border-brand-border/50 rounded-2xl p-3.5 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-semibold ${style.color}`}>{act.action}</span>
+                            <span className="text-brand-muted text-xs">{act.date} · {act.time}</span>
+                          </div>
+                          <ActivityDescription description={act.description} />
+                          <div className="flex items-center gap-1.5 text-brand-muted text-xs mt-3 pt-3 border-t border-brand-border/40">
+                            <User className="w-3 h-3" /> {act.user} · {act.role}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <Paginator page={activityPage} totalPages={activityTotalPages} onPageChange={setActivityPage} />
+          </motion.section>
+        )}
+
+        <div
+          className="h-[calc(5.75rem+env(safe-area-inset-bottom,0px))] md:hidden"
+          aria-hidden="true"
+        />
+      </div>
+
+      {/* ── Mobile field scanner dock ──────────────────────────────────── */}
+      <button
+        type="button"
+        onClick={() => setScannerOpen(true)}
+        aria-label="Scan QR to open another element"
+        className="group fixed left-4 right-4 z-[90] flex min-h-[68px] items-center gap-3 overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-r from-[#1a237e] to-[#10175d] p-2.5 pr-3 text-left text-white shadow-[0_14px_34px_rgba(10,16,70,0.38),0_2px_6px_rgba(10,16,70,0.24)] transition-[transform,box-shadow,background-color] active:translate-y-px active:scale-[0.985] active:shadow-[0_8px_20px_rgba(10,16,70,0.32)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-secondary focus-visible:ring-offset-2 md:hidden"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}
+      >
+        <span className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-[#29aae2] to-transparent" />
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-secondary text-white shadow-[0_5px_14px_rgba(41,170,226,0.3),inset_0_0_0_1px_rgba(255,255,255,0.2)]">
+          <QrCode className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-bold leading-tight text-white">Scan QR code</span>
+          <span className="mt-1 block text-xs leading-tight text-white/70">View another element</span>
+        </span>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition-transform group-active:translate-x-0.5">
+          <ChevronRight className="h-4 w-4" />
+        </span>
+      </button>
+
+      {/* ── Delete confirm modal ─────────────────────────────────────────── */}
+      <Modal
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        title="Delete Element"
+        description={`"${element.name}" and all its documents and activity history will be permanently removed. This cannot be undone.`}
+        variant="danger"
+        confirmLabel="Delete Element"
+        onConfirm={handleDelete}
+        loading={deleting}
+        maxWidth="max-w-sm"
+      />
+
+      {/* ── Document viewer ──────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {viewingDoc && (
+          <DocumentViewer
+            doc={viewingDoc}
+            projectId={resolvedProjectId ?? ""}
+            getDownloadUrl={(doc) => apiClient.getDocumentDownloadUrl(doc.id)}
+            onClose={() => setViewingDoc(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <MobileQrScanner
+        open={scannerOpen}
+        onClose={closeScanner}
+        onElementPath={handleScannedElement}
+        publicSiteOrigin={configuredSiteUrl}
+      />
     </div>
   );
-}
-
-function SectionHeading({ icon: Icon, label }: { icon: typeof FileText; label: string }) {
-  return <div className="flex items-center gap-3 pb-4 border-b border-brand-border"><div className="w-9 h-9 bg-brand-soft rounded-lg flex items-center justify-center"><Icon className="w-5 h-5 text-brand-secondary" /></div><h2 className="text-brand-primary" style={{ fontSize: "1.4rem", fontWeight: 800 }}>{label}</h2></div>;
-}
-
-function Input({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
-  return <div><label className="text-xs text-brand-muted uppercase tracking-wider">{label}</label><input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 w-full border border-brand-border rounded-xl px-4 py-3 text-sm" /></div>;
 }
