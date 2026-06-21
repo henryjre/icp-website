@@ -102,7 +102,7 @@ If `DATABASE_URL` is set, it takes precedence over `MASTER_DB_*`.
 - `JWT_ACCESS_SECRET`
 - `JWT_REFRESH_SECRET`
 - `JWT_ACCESS_TTL` (example: `15m`)
-- `JWT_REFRESH_TTL` (example: `7d`)
+- `JWT_REFRESH_TTL` (default: `30d`)
 
 ### S3 / Spaces
 

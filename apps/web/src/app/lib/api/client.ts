@@ -84,7 +84,9 @@ async function request<T>(
   return (await response.json()) as T;
 }
 
-async function tryRefreshToken(): Promise<boolean> {
+let refreshSessionPromise: Promise<boolean> | null = null;
+
+async function refreshSession(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) {
     clearSession();
@@ -105,6 +107,16 @@ async function tryRefreshToken(): Promise<boolean> {
   const payload = (await response.json()) as LoginResponseDTO;
   setSession(payload);
   return true;
+}
+
+function tryRefreshToken(): Promise<boolean> {
+  if (!refreshSessionPromise) {
+    refreshSessionPromise = refreshSession().finally(() => {
+      refreshSessionPromise = null;
+    });
+  }
+
+  return refreshSessionPromise;
 }
 
 export const apiClient = {

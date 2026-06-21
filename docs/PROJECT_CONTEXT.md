@@ -213,7 +213,7 @@ It then composes:
 | `JWT_ACCESS_SECRET` | server auth | Access token signing secret |
 | `JWT_REFRESH_SECRET` | server auth | Refresh token signing secret |
 | `JWT_ACCESS_TTL` | server auth | Access token lifetime (ex: `15m`) |
-| `JWT_REFRESH_TTL` | server auth | Refresh token lifetime (ex: `7d`) |
+| `JWT_REFRESH_TTL` | server auth | Refresh token lifetime (default: `30d`) |
 | `S3_ENDPOINT` | server s3 | S3-compatible endpoint |
 | `S3_REGION` | server s3 | Region used by AWS SDK |
 | `S3_BUCKET` | server s3 | Bucket/space name |
