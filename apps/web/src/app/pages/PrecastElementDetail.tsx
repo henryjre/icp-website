@@ -26,6 +26,7 @@ import { QRCodeDisplay } from "../components/QRCodeDisplay";
 import { Modal } from "../components/Modal";
 import { DocumentViewer } from "../components/DocumentViewer";
 import { MobileQrScanner } from "../components/MobileQrScanner";
+import { SlidingSectionTabs } from "../components/SlidingSectionTabs";
 import { apiClient, ApiClientError } from "../lib/api/client";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts/store";
 import {
@@ -602,48 +603,7 @@ export function PrecastElementDetail() {
       {/* ── Sticky section navigation ───────────────────────────────────── */}
       <div className="sticky top-[72px] sm:top-[80px] z-40 bg-[#f5f7fc]/95 backdrop-blur-md">
         <div className="max-w-[80rem] mx-auto border-b border-brand-border/40">
-          {/* Mobile grid */}
-          <div
-            className="grid md:hidden px-2"
-            style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
-          >
-            {tabs.map((t) => (
-              <button
-                key={`mobile-${t.key}`}
-                onClick={() => scrollToSection(t.key)}
-                className={`relative flex min-w-0 min-h-[58px] flex-col items-center justify-center gap-1 py-1.5 text-[10px] font-semibold transition-colors cursor-pointer ${
-                  activeTab === t.key ? "text-brand-primary" : "text-brand-muted hover:text-brand-primary"
-                }`}
-                aria-label={`Go to ${t.label}`}
-              >
-                <span className={`flex h-7 w-8 items-center justify-center rounded-lg transition-all ${
-                  activeTab === t.key ? "bg-brand-primary text-white shadow-sm" : "text-brand-muted"
-                }`}>
-                  <t.icon className="w-3.5 h-3.5" />
-                </span>
-                <span className="w-full truncate px-0.5 text-center">{t.mobileLabel}</span>
-                {activeTab === t.key && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-brand-primary" />}
-              </button>
-            ))}
-          </div>
-
-          {/* Desktop pill tabs */}
-          <div className="hidden md:flex items-center justify-center gap-1.5 px-6 py-3">
-            {tabs.map((t) => (
-              <button
-                key={`desktop-${t.key}`}
-                onClick={() => scrollToSection(t.key)}
-                className={`relative flex min-h-10 items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
-                  activeTab === t.key
-                    ? "bg-brand-primary text-white shadow-sm"
-                    : "text-brand-muted hover:text-brand-primary hover:bg-brand-soft"
-                }`}
-              >
-                <t.icon className="w-3.5 h-3.5" />
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <SlidingSectionTabs tabs={tabs} activeTab={activeTab} onTabChange={scrollToSection} />
         </div>
       </div>
 
