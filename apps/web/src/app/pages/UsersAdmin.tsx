@@ -72,6 +72,8 @@ export function UsersAdmin() {
   const [createInviteOpen, setCreateInviteOpen] = useState(false);
 
   // Confirmation modals
+  const [rejectUserTarget, setRejectUserTarget] = useState<UserManagementDTO | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   const [archiveUserTarget, setArchiveUserTarget] = useState<UserManagementDTO | null>(null);
   const [deleteUserTarget, setDeleteUserTarget] = useState<UserManagementDTO | null>(null);
   const [archiveInviteTarget, setArchiveInviteTarget] = useState<InviteCodeDTO | null>(null);
@@ -160,8 +162,8 @@ export function UsersAdmin() {
   };
 
   const approveUser = async (userId: string) => {
-    const role = selectedRoleByUser[userId];
-    if (!role) { toast.error("Select a role before accepting this user."); return; }
+    const pendingUser = users.find((user) => user.id === userId);
+    const role = selectedRoleByUser[userId] ?? pendingUser?.role ?? "client";
     await withError(async () => {
       const { user } = await apiClient.approveUser(userId, { role });
       patchUser(user);
@@ -169,13 +171,22 @@ export function UsersAdmin() {
     });
   };
 
-  const rejectUser = async (userId: string) => {
-    const reason = window.prompt("Reason for rejection (optional):") ?? undefined;
-    await withError(async () => {
-      const { user } = await apiClient.rejectUser(userId, { reason: reason?.trim() || undefined });
-      patchUser(user);
-      toast.success("User rejected");
-    });
+  const rejectUser = async () => {
+    if (!rejectUserTarget) return;
+    setModalLoading(true);
+    try {
+      await withError(async () => {
+        const { user } = await apiClient.rejectUser(rejectUserTarget.id, {
+          reason: rejectionReason.trim() || undefined,
+        });
+        patchUser(user);
+        toast.success("User rejected");
+      });
+    } finally {
+      setModalLoading(false);
+      setRejectUserTarget(null);
+      setRejectionReason("");
+    }
   };
 
   const archiveUser = async (userId: string) => {
@@ -547,7 +558,7 @@ export function UsersAdmin() {
                           <p className="text-xs text-red-500 bg-red-50 rounded-lg px-2 py-1.5">Reason: {user.rejectedReason}</p>
                         )}
 
-                        {/* Role selector + primary CTA */}
+                        {/* Role selector */}
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-auto pt-1">
                           <select
                             value={selectedRoleByUser[user.id] ?? user.role ?? "client"}
@@ -564,19 +575,18 @@ export function UsersAdmin() {
                           >
                             {roles.map((r) => <option key={r} value={r}>{r}</option>)}
                           </select>
-                          {user.status === "Pending" ? (
-                            <button onClick={() => void approveUser(user.id)} className={`${btnGreen} w-full sm:w-auto`}>Accept</button>
-                          ) : null}
                         </div>
                       </div>
 
                       {/* Card footer: secondary + destructive actions */}
                       <div className="border-t border-gray-100 px-3.5 sm:px-4 py-2.5 flex items-center justify-between gap-2 bg-gray-50 rounded-b-xl">
                         <div className="flex items-center gap-1.5">
-                          {user.status === "Pending" && (
-                            <button onClick={() => void rejectUser(user.id)} className={btnOrange}>Reject</button>
-                          )}
-                          {user.status === "Archived" ? (
+                          {user.status === "Pending" ? (
+                            <>
+                              <button onClick={() => void approveUser(user.id)} className={btnGreen}>Accept</button>
+                              <button onClick={() => setRejectUserTarget(user)} className={btnOrange}>Reject</button>
+                            </>
+                          ) : user.status === "Archived" ? (
                             <button onClick={() => void unarchiveUser(user.id)} className={btnCyan}>Unarchive</button>
                           ) : (
                             <button onClick={() => setArchiveUserTarget(user)} className={btnGray}>Archive</button>
@@ -847,6 +857,34 @@ export function UsersAdmin() {
       </div>
 
       {/* ── Confirmation Modals ── */}
+
+      <Modal
+        open={!!rejectUserTarget}
+        onClose={() => {
+          setRejectUserTarget(null);
+          setRejectionReason("");
+        }}
+        title="Reject User"
+        description={`Reject ${rejectUserTarget?.fullName ?? "this user"}? You can include a reason for this decision.`}
+        variant="danger"
+        confirmLabel="Reject"
+        onConfirm={rejectUser}
+        loading={modalLoading}
+        cancelLabel="Cancel"
+      >
+        <label className="block text-sm font-medium text-gray-700" htmlFor="rejection-reason">
+          Reason <span className="font-normal text-gray-400">(optional)</span>
+        </label>
+        <textarea
+          id="rejection-reason"
+          value={rejectionReason}
+          onChange={(event) => setRejectionReason(event.target.value)}
+          placeholder="Add a reason for rejecting this user"
+          rows={4}
+          disabled={modalLoading}
+          className="mt-2 w-full resize-y rounded-lg border border-gray-200 bg-[#f5f7fc] px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+        />
+      </Modal>
 
       <Modal
         open={!!archiveUserTarget}

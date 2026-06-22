@@ -137,6 +137,19 @@ export interface RegisterRequestDTO {
   inviteCode: string;
 }
 
+export interface ForgotPasswordRequestDTO {
+  email: string;
+}
+
+export interface ResetPasswordRequestDTO {
+  token: string;
+  password: string;
+}
+
+export interface PasswordRecoveryResponseDTO {
+  message: string;
+}
+
 export interface UserManagementDTO extends UserDTO {}
 
 export interface ApproveUserRequestDTO {

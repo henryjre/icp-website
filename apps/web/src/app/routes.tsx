@@ -11,6 +11,8 @@ import { PrecastElementDetail } from "./pages/PrecastElementDetail";
 import { ContactUs } from "./pages/ContactUs";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
+import { ForgotPassword } from "./pages/ForgotPassword";
+import { ResetPassword } from "./pages/ResetPassword";
 import { AuthLayout } from "./components/AuthLayout";
 import { UsersAdmin } from "./pages/UsersAdmin";
 import { CreateProject } from "./pages/CreateProject";
@@ -177,6 +179,8 @@ export const router = createBrowserRouter([
         children: [
           { path: "login", Component: Login, loader: guestOnlyLoader },
           { path: "register", Component: Register, loader: guestOnlyLoader },
+          { path: "forgot-password", Component: ForgotPassword, loader: guestOnlyLoader },
+          { path: "reset-password", Component: ResetPassword },
         ],
       },
       { path: "users", Component: UsersAdmin, loader: adminLoader },

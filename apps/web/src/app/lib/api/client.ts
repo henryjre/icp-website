@@ -3,8 +3,10 @@ import type {
   CreateInviteRequestDTO,
   CreateProjectRequestDTO,
   CreateProjectThumbnailUploadUrlRequestDTO,
+  ForgotPasswordRequestDTO,
   InviteCodeDTO,
   LoginResponseDTO,
+  PasswordRecoveryResponseDTO,
   PaginatedResponse,
   PrecastElementDTO,
   ProjectDTO,
@@ -14,6 +16,7 @@ import type {
   ProjectActivityDTO,
   RegisterRequestDTO,
   RejectUserRequestDTO,
+  ResetPasswordRequestDTO,
   SendInviteEmailRequestDTO,
   CreateElementRequestDTO,
   FinalizeElementDocumentRequestDTO,
@@ -142,6 +145,30 @@ export const apiClient = {
       },
       { withAuth: false },
     );
+  },
+
+  async forgotPassword(input: ForgotPasswordRequestDTO): Promise<PasswordRecoveryResponseDTO> {
+    return request<PasswordRecoveryResponseDTO>(
+      "/auth/forgot-password",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      { withAuth: false },
+    );
+  },
+
+  async resetPassword(input: ResetPasswordRequestDTO): Promise<PasswordRecoveryResponseDTO> {
+    const response = await request<PasswordRecoveryResponseDTO>(
+      "/auth/reset-password",
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+      { withAuth: false },
+    );
+    clearSession();
+    return response;
   },
 
   async logout(): Promise<void> {

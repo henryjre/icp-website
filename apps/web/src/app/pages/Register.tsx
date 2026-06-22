@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, KeyboardEvent, ClipboardEvent, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
@@ -12,6 +12,12 @@ import {
 } from "../lib/animations";
 
 const DRAFT_KEY = "form:register";
+const INVITE_CODE_LENGTH = 6;
+
+function inviteCodeCharacters(value: string) {
+  const normalized = value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, INVITE_CODE_LENGTH);
+  return Array.from({ length: INVITE_CODE_LENGTH }, (_, index) => normalized[index] ?? "");
+}
 
 const staggerFields = {
   hidden: {},
@@ -28,7 +34,10 @@ export function Register() {
   const [email, setEmail] = useState(() => getDraft(`${DRAFT_KEY}:email`, ""));
   const [password, setPassword] = useState(() => getDraft(`${DRAFT_KEY}:password`, ""));
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState(() => getDraft(`${DRAFT_KEY}:inviteCode`, initialCode));
+  const [inviteCodeCharactersState, setInviteCodeCharactersState] = useState(() =>
+    inviteCodeCharacters(getDraft(`${DRAFT_KEY}:inviteCode`, initialCode)),
+  );
+  const inviteCodeInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -36,6 +45,56 @@ export function Register() {
   const [submitting, setSubmitting] = useState(false);
 
   const passwordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
+  const inviteCode = inviteCodeCharactersState.join("");
+
+  const updateInviteCode = (characters: string[]) => {
+    setInviteCodeCharactersState(characters);
+    setDraft(`${DRAFT_KEY}:inviteCode`, characters.join(""));
+  };
+
+  const updateInviteCodeCharacter = (index: number, value: string) => {
+    const characters = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!characters) {
+      const next = [...inviteCodeCharactersState];
+      next[index] = "";
+      updateInviteCode(next);
+      return;
+    }
+
+    const next = [...inviteCodeCharactersState];
+    characters.slice(0, INVITE_CODE_LENGTH - index).split("").forEach((character, offset) => {
+      next[index + offset] = character;
+    });
+    updateInviteCode(next);
+    inviteCodeInputRefs.current[Math.min(index + characters.length, INVITE_CODE_LENGTH - 1)]?.focus();
+  };
+
+  const handleInviteCodeKeyDown = (index: number, event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      const next = [...inviteCodeCharactersState];
+      const previousIndex = Math.max(0, index - 1);
+
+      if (next[index]) next[index] = "";
+      else if (index > 0) next[previousIndex] = "";
+
+      updateInviteCode(next);
+      inviteCodeInputRefs.current[previousIndex]?.focus();
+    } else if (event.key === "ArrowLeft" && index > 0) {
+      event.preventDefault();
+      inviteCodeInputRefs.current[index - 1]?.focus();
+    } else if (event.key === "ArrowRight" && index < INVITE_CODE_LENGTH - 1) {
+      event.preventDefault();
+      inviteCodeInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleInviteCodePaste = (index: number, event: ClipboardEvent<HTMLInputElement>) => {
+    const characters = event.clipboardData.getData("text").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!characters) return;
+    event.preventDefault();
+    updateInviteCodeCharacter(index, characters);
+  };
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -51,6 +110,7 @@ export function Register() {
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+      setInviteCodeCharactersState(inviteCodeCharacters(""));
       clearDraft(`${DRAFT_KEY}:fullName`);
       clearDraft(`${DRAFT_KEY}:email`);
       clearDraft(`${DRAFT_KEY}:password`);
@@ -238,19 +298,32 @@ export function Register() {
 
             {/* Invite Code */}
             <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
-              <label className="text-xs text-gray-400 uppercase tracking-[0.14em]">Invite Code</label>
-              <input
-                type="text"
-                required
-                value={inviteCode}
-                onChange={(e) => {
-                  const value = e.target.value.toUpperCase();
-                  setInviteCode(value);
-                  setDraft(`${DRAFT_KEY}:inviteCode`, value);
-                }}
-                placeholder="XXXX-XXXX"
-                className="mt-2 w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-brand-primary focus:outline-none pb-2 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300 uppercase tracking-widest"
-              />
+              <span id="invite-code-label" className="text-xs text-gray-400 uppercase tracking-[0.14em]">Invite Code</span>
+              <div
+                role="group"
+                aria-labelledby="invite-code-label"
+                className="mt-2 grid grid-cols-6 gap-2"
+              >
+                {inviteCodeCharactersState.map((character, index) => (
+                  <input
+                    key={index}
+                    ref={(element) => { inviteCodeInputRefs.current[index] = element; }}
+                    type="text"
+                    inputMode="text"
+                    autoCapitalize="characters"
+                    autoComplete={index === 0 ? "one-time-code" : "off"}
+                    required
+                    maxLength={1}
+                    value={character}
+                    onChange={(event) => updateInviteCodeCharacter(index, event.target.value)}
+                    onKeyDown={(event) => handleInviteCodeKeyDown(index, event)}
+                    onPaste={(event) => handleInviteCodePaste(index, event)}
+                    onFocus={(event) => event.currentTarget.select()}
+                    aria-label={`Invite code character ${index + 1} of ${INVITE_CODE_LENGTH}`}
+                    className="h-12 min-w-0 rounded-lg border-2 border-gray-200 bg-white/70 text-center font-mono text-lg font-bold uppercase text-brand-primary caret-brand-primary transition-colors focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/15"
+                  />
+                ))}
+              </div>
             </motion.div>
 
             {/* Messages + Submit */}

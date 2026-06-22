@@ -189,3 +189,49 @@ export async function sendMail(input: {
     html: input.html,
   });
 }
+
+export async function sendPasswordResetMail(input: { to: string; resetUrl: string }) {
+  const text = [
+    "Reset your ICP-FNET Engineering password",
+    "",
+    "Use the link below to choose a new password:",
+    input.resetUrl,
+    "",
+    "This link expires in 30 minutes and can only be used once.",
+    "If you did not request a password reset, you can ignore this email.",
+  ].join("\n");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f0f2f5;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+        <tr>
+          <td style="background:#041D9D;padding:30px 36px;">
+            <p style="margin:0;color:#ffffff;font-size:22px;font-weight:800;">ICP-FNET Engineering</p>
+            <p style="margin:5px 0 0;color:#8ed8f8;font-size:12px;letter-spacing:2px;text-transform:uppercase;">Account Recovery</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:34px 36px;">
+            <h1 style="margin:0;color:#111827;font-size:22px;line-height:1.3;">Reset your password</h1>
+            <p style="margin:14px 0 24px;color:#4b5563;font-size:14px;line-height:1.7;">Use the button below to choose a new password. This secure link expires in 30 minutes and can only be used once.</p>
+            <a href="${input.resetUrl}" style="display:inline-block;background:#041D9D;color:#ffffff;text-decoration:none;padding:13px 24px;border-radius:8px;font-size:14px;font-weight:700;">Reset password</a>
+            <p style="margin:24px 0 0;color:#9ca3af;font-size:12px;line-height:1.6;">If you did not request a password reset, no action is needed. Your password will remain unchanged.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  await sendMail({
+    to: input.to,
+    subject: "Reset your ICP-FNET Engineering password",
+    text,
+    html,
+  });
+}

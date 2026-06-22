@@ -21,6 +21,7 @@ export function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const from = searchParams.get("from") ?? "/";
+  const passwordReset = searchParams.get("reset") === "success";
   const shouldReduceMotion = useReducedMotion();
   const [email, setEmail] = useState(() => getDraft(`${DRAFT_KEY}:email`, ""));
   const [password, setPassword] = useState(() => getDraft(`${DRAFT_KEY}:password`, ""));
@@ -150,13 +151,34 @@ export function Login() {
                   </AnimatePresence>
                 </button>
               </div>
+              <div className="mt-2 flex justify-end">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-brand-accent transition-colors hover:text-brand-primary"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </motion.div>
 
             {/* Error + Submit */}
             <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
               <AnimatePresence mode="wait">
+                {passwordReset && !error && (
+                  <motion.div
+                    role="status"
+                    key="password-reset-success"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-4"
+                  >
+                    Password reset successfully. Sign in with your new password.
+                  </motion.div>
+                )}
                 {error && (
                   <motion.div
+                    role="alert"
                     key={error}
                     className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4"
                     initial={{ opacity: 0 }}
