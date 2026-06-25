@@ -46,8 +46,6 @@ jobs:
 
       - name: Build docs
         run: pnpm --filter @icp/docs run build
-        env:
-          DOCS_BASE: /${{ github.event.repository.name }}/
 
       - name: Configure Pages
         uses: actions/configure-pages@v6
