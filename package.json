@@ -11,9 +11,12 @@
     "dev": "concurrently \"pnpm run dev:web\" \"pnpm run dev:server\"",
     "dev:web": "pnpm --filter @icp/web run dev",
     "dev:server": "pnpm --filter @icp/server run dev",
+    "dev:docs": "pnpm --filter @icp/docs run dev",
     "build": "pnpm --filter @icp/web run build && pnpm --filter @icp/server run build",
     "build:web": "pnpm --filter @icp/web run build",
     "build:server": "pnpm --filter @icp/server run build",
+    "build:docs": "pnpm --filter @icp/docs run build",
+    "preview:docs": "pnpm --filter @icp/docs run preview",
     "test:migrations": "node --test scripts/check-zero-downtime-migrations.test.mjs"
   },
   "devDependencies": {

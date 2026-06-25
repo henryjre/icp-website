@@ -127,7 +127,7 @@ export function Register() {
   };
 
   return (
-    <div className="flex flex-1 flex-col justify-start lg:justify-center px-6 pt-8 pb-6 lg:px-14 lg:py-12 h-full">
+    <div className="flex flex-1 flex-col justify-start lg:justify-center px-6 pt-8 pb-6 lg:px-14 lg:py-6 h-full">
       <div className="w-full max-w-[26rem] mx-auto">
 
         {/* Mobile logo + icon */}
@@ -151,7 +151,7 @@ export function Register() {
 
         {/* Desktop header */}
         <motion.div
-          className="hidden lg:block mb-10"
+          className="hidden lg:block mb-6"
           variants={staggerFields}
           initial="hidden"
           animate="visible"
@@ -163,7 +163,7 @@ export function Register() {
             <h1 className="text-brand-primary mt-2 leading-none" style={{ fontSize: "2.5rem", fontWeight: 800 }}>
               Register
             </h1>
-            <p className="text-gray-500 mt-2 text-sm leading-relaxed">
+            <p className="text-gray-500 mt-1.5 text-sm leading-relaxed">
               Create your account. Admin approval is required before login.
             </p>
           </motion.div>
@@ -171,7 +171,7 @@ export function Register() {
 
         <form onSubmit={onSubmit}>
           <motion.div
-            className="space-y-4 lg:space-y-7"
+            className="space-y-4 lg:space-y-5"
             variants={staggerFields}
             initial="hidden"
             animate="visible"
@@ -191,7 +191,7 @@ export function Register() {
                   setDraft(`${DRAFT_KEY}:fullName`, e.target.value);
                 }}
                 placeholder="Jane Smith"
-                className="mt-2 w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-brand-primary focus:outline-none pb-2 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300"
+                className="mt-1.5 w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-brand-primary focus:outline-none pb-1.5 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300"
               />
             </motion.div>
 
@@ -210,14 +210,14 @@ export function Register() {
                   setDraft(`${DRAFT_KEY}:email`, e.target.value);
                 }}
                 placeholder="you@company.com"
-                className="mt-2 w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-brand-primary focus:outline-none pb-2 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300"
+                className="mt-1.5 w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-brand-primary focus:outline-none pb-1.5 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300"
               />
             </motion.div>
 
             {/* Password */}
             <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
               <label className="text-xs text-gray-400 uppercase tracking-[0.14em]">Password</label>
-              <div className="relative mt-2">
+              <div className="relative mt-1.5">
                 <input
                   id="register-password"
                   name="password"
@@ -230,7 +230,7 @@ export function Register() {
                     setDraft(`${DRAFT_KEY}:password`, e.target.value);
                   }}
                   placeholder="••••••••"
-                  className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-brand-primary focus:outline-none pb-2 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300 pr-8"
+                  className="w-full bg-transparent border-0 border-b-2 border-gray-200 focus:border-brand-primary focus:outline-none pb-1.5 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300 pr-8"
                 />
                 <button
                   type="button"
@@ -257,7 +257,7 @@ export function Register() {
             {/* Confirm Password */}
             <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
               <label className="text-xs text-gray-400 uppercase tracking-[0.14em]">Confirm Password</label>
-              <div className="relative mt-2">
+              <div className="relative mt-1.5">
                 <input
                   id="register-confirm-password"
                   name="confirmPassword"
@@ -267,7 +267,7 @@ export function Register() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className={`w-full bg-transparent border-0 border-b-2 focus:outline-none pb-2 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300 pr-8 ${
+                  className={`w-full bg-transparent border-0 border-b-2 focus:outline-none pb-1.5 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300 pr-8 ${
                     passwordMismatch
                       ? "border-red-400 focus:border-red-500"
                       : "border-gray-200 focus:border-brand-primary"
@@ -314,7 +314,7 @@ export function Register() {
               <div
                 role="group"
                 aria-labelledby="invite-code-label"
-                className="mt-2 grid grid-cols-6 gap-2"
+                className="mt-1.5 grid grid-cols-6 gap-2"
               >
                 {inviteCodeCharactersState.map((character, index) => (
                   <input
@@ -332,7 +332,7 @@ export function Register() {
                     onPaste={(event) => handleInviteCodePaste(index, event)}
                     onFocus={(event) => event.currentTarget.select()}
                     aria-label={`Invite code character ${index + 1} of ${INVITE_CODE_LENGTH}`}
-                    className="h-12 min-w-0 rounded-lg border-2 border-gray-200 bg-white/70 text-center font-mono text-lg font-bold uppercase text-brand-primary caret-brand-primary transition-colors focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/15"
+                    className="h-10 min-w-0 rounded-lg border-2 border-gray-200 bg-white/70 text-center font-mono text-base font-bold uppercase text-brand-primary caret-brand-primary transition-colors focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/15"
                   />
                 ))}
               </div>
@@ -340,36 +340,38 @@ export function Register() {
 
             {/* Messages + Submit */}
             <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
-              <AnimatePresence mode="wait">
-                {message && (
-                  <motion.div
-                    key="success"
-                    variants={shouldReduceMotion ? undefined : scaleInVariants}
-                    initial="hidden"
-                    animate="visible"
-                    exit="hidden"
-                    className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mb-4"
-                  >
-                    {message}
-                  </motion.div>
-                )}
-                {error && (
-                  <motion.div
-                    key={error}
-                    className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-4"
-                    initial={{ opacity: 0 }}
-                    animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, ...shakeAnimation }}
-                    exit={{ opacity: 0, transition: { duration: 0.15 } }}
-                  >
-                    {error}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <div className="mb-3 min-h-[2.375rem]">
+                <AnimatePresence mode="wait">
+                  {message && (
+                    <motion.div
+                      key="success"
+                      variants={shouldReduceMotion ? undefined : scaleInVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="hidden"
+                      className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2"
+                    >
+                      {message}
+                    </motion.div>
+                  )}
+                  {error && (
+                    <motion.div
+                      key={error}
+                      className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2"
+                      initial={{ opacity: 0 }}
+                      animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, ...shakeAnimation }}
+                      exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                    >
+                      {error}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
               <motion.button
                 type="submit"
                 disabled={submitting || passwordMismatch}
-                className="w-full bg-brand-primary hover-bg-brand-primary text-white rounded-xl py-3.5 text-sm font-bold transition disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
+                className="w-full bg-brand-primary hover-bg-brand-primary text-white rounded-xl py-3 text-sm font-bold transition disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
                 animate={shouldReduceMotion ? {} : submitting ? { scale: [1, 0.97, 1] } : { scale: 1 }}
                 transition={submitting && !shouldReduceMotion ? { duration: 0.8, repeat: Infinity, ease: "easeInOut" } : transitionFast}
               >
@@ -383,7 +385,7 @@ export function Register() {
           initial={shouldReduceMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5, duration: 0.3 }}
-          className="text-sm text-gray-400 mt-8 text-center"
+          className="text-sm text-gray-400 mt-5 text-center"
         >
           Already approved?{" "}
           <Link

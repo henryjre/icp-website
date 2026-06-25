@@ -28,7 +28,7 @@ function ContentRenderer() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1, transition: { duration: 0.25, ease: "easeOut", delay: 0.05 } }}
             exit={{ opacity: 0, transition: { duration: 0.1 } }}
-            className="flex flex-col flex-1 h-full overflow-y-auto"
+            className={`flex flex-col flex-1 h-full ${isReg ? "overflow-y-auto lg:overflow-hidden" : "overflow-y-auto"}`}
           >
             {display.outlet}
           </motion.div>
