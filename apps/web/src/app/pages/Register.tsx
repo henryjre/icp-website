@@ -180,8 +180,11 @@ export function Register() {
             <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
               <label className="text-xs text-gray-400 uppercase tracking-[0.14em]">Full Name</label>
               <input
+                id="register-full-name"
+                name="fullName"
                 type="text"
                 required
+                autoComplete="name"
                 value={fullName}
                 onChange={(e) => {
                   setFullName(e.target.value);
@@ -196,8 +199,11 @@ export function Register() {
             <motion.div variants={shouldReduceMotion ? undefined : fadeUpVariants}>
               <label className="text-xs text-gray-400 uppercase tracking-[0.14em]">Email address</label>
               <input
+                id="register-email"
+                name="email"
                 type="email"
                 required
+                autoComplete="email"
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value);
@@ -213,8 +219,11 @@ export function Register() {
               <label className="text-xs text-gray-400 uppercase tracking-[0.14em]">Password</label>
               <div className="relative mt-2">
                 <input
+                  id="register-password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -250,8 +259,11 @@ export function Register() {
               <label className="text-xs text-gray-400 uppercase tracking-[0.14em]">Confirm Password</label>
               <div className="relative mt-2">
                 <input
+                  id="register-confirm-password"
+                  name="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   required
+                  autoComplete="new-password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
