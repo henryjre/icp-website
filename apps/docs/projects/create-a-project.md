@@ -1,6 +1,8 @@
 # Create a project
 
+::: info
 Use this when a new project needs to be added to the platform.
+:::
 
 ## Who can do this
 

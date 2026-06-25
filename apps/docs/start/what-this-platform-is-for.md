@@ -1,6 +1,8 @@
 # What this platform is for
 
+::: info
 Use this guide when you are new to the ICP-FNET Engineering website and need to understand what work happens inside it.
+:::
 
 ## Who can use it
 

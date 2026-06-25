@@ -1,6 +1,8 @@
 # View element details
 
+::: info
 Use this when you need to check one precast element under a project.
+:::
 
 ## Who can do this
 

@@ -1,6 +1,8 @@
 # Create a precast element
 
+::: info
 Use this when a project needs a new precast element record.
+:::
 
 ## Who can do this
 

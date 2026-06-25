@@ -1,6 +1,8 @@
 # Edit project details
 
+::: info
 Use this when project information has changed.
+:::
 
 ## Who can do this
 

@@ -1,6 +1,8 @@
 # Scan or share QR links
 
+::: info
 Use this when a field user needs to open an element record quickly.
+:::
 
 ## Who can do this
 

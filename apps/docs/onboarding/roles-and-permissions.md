@@ -1,6 +1,8 @@
 # Roles and permissions
 
+::: info
 Use this when you need to know what each account type can do.
+:::
 
 ## Roles
 

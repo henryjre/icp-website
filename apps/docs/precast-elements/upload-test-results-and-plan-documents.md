@@ -1,6 +1,8 @@
 # Upload test results and plan documents
 
+::: info
 Use this when an element needs test results, drawings, or plan files attached to it.
+:::
 
 ## Who can do this
 

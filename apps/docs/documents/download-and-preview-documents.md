@@ -1,6 +1,8 @@
 # Download and preview documents
 
+::: info
 Use this when you need to open or save a project or element file.
+:::
 
 ## Who can do this
 

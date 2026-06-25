@@ -1,6 +1,8 @@
 # View projects
 
+::: info
 Use this when you want to browse ICP-FNET projects and open a project record.
+:::
 
 ## Who can do this
 

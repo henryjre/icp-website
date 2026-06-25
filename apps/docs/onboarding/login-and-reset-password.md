@@ -1,6 +1,8 @@
 # Login and reset password
 
+::: info
 Use this when your account has already been approved and you need to sign in.
+:::
 
 ## Who can do this
 

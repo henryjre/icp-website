@@ -1,6 +1,8 @@
 # Manage invite codes
 
+::: info
 Use this when you need to let new users register.
+:::
 
 ## Who can do this
 

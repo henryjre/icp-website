@@ -1,6 +1,8 @@
 # Confidential documents
 
+::: info
 Use this when a file should be kept away from client accounts.
+:::
 
 ## Who can do this
 

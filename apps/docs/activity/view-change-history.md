@@ -1,6 +1,8 @@
 # View change history
 
+::: info
 Use this when you need to check what changed on a project or precast element.
+:::
 
 ## Who can do this
 

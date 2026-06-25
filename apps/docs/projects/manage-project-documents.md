@@ -1,6 +1,8 @@
 # Manage project documents
 
+::: info
 Use this when a project needs supporting files such as drawings, forms, reports, or other attachments.
+:::
 
 ## Who can do this
 

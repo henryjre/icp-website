@@ -1,6 +1,8 @@
 # Upload or replace the general plan
 
+::: info
 Use this when the main project plan needs to be added or updated.
+:::
 
 ## Who can do this
 

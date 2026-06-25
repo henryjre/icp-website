@@ -1,6 +1,8 @@
 # Register with an invite code
 
+::: info
 Use this when you received an invite code and need to create your account.
+:::
 
 ## Who can do this
 

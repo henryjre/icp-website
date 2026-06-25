@@ -1,6 +1,8 @@
 # Admin: approve users
 
+::: info
 Use this when a new user has registered and needs access to the platform.
+:::
 
 ## Who can do this
 

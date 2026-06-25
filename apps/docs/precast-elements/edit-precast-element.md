@@ -1,6 +1,8 @@
 # Edit a precast element
 
+::: info
 Use this when an element record needs to be corrected or updated.
+:::
 
 ## Who can do this
 
