@@ -284,7 +284,9 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
 
   useEffect(() => {
     setProject(loaderProject);
-    if (loaderProject) setEditForm(getDraft(draftKey, toEditForm(loaderProject)));
+    if (loaderProject) {
+      setEditForm(getDraft(draftKey, toEditForm(loaderProject)));
+    }
     window.scrollTo({ top: 0 });
   }, [loaderProject, projectId, draftKey]);
 
@@ -913,57 +915,67 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
               <Building2 className="w-8 h-8 text-brand-muted mx-auto mb-2 opacity-40" />
               <p className="text-brand-muted text-sm">No precast elements registered yet.</p>
             </div>
-          ) : (
-            <>
-              <p className="text-brand-muted text-sm mb-5">
-                {project.elements.length} element{project.elements.length !== 1 ? "s" : ""} registered. Click any element to view its full details and QR code.
-              </p>
-              <motion.div
-                className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4"
-                variants={shouldReduceMotion ? undefined : staggerContainerVariants}
-                initial="hidden"
-                whileInView="visible"
-                viewport={VIEWPORT}
-              >
-                {project.elements.map((el) => (
-                  <motion.div key={el.id} variants={shouldReduceMotion ? undefined : staggerChildVariants}>
+          ) : (() => {
+            const batchGroups = Object.entries(
+              project.elements.reduce((acc, el) => {
+                const key = el.batch != null ? String(el.batch) : "unassigned";
+                (acc[key] ??= []).push(el);
+                return acc;
+              }, {} as Record<string, typeof project.elements>)
+            )
+              .sort(([a], [b]) => {
+                if (a === "unassigned") return 1;
+                if (b === "unassigned") return -1;
+                return Number(a) - Number(b);
+              })
+              .map(([key, els]) => ({
+                key,
+                label: key === "unassigned" ? "Unassigned" : `Batch ${key}`,
+                elements: els,
+              }));
+
+            return (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {batchGroups.map(({ key, label, elements: batchEls }) => {
+                  const deliveredCount = batchEls.filter((e) => e.status === "Delivered").length;
+                  const castedCount = batchEls.length - deliveredCount;
+                  const allDelivered = castedCount === 0;
+                  return (
                     <NavLink
-                      to={`/projects/${project.projectCode}/e/${el.shortToken}`}
+                      key={key}
+                      to={`/projects/${project.projectCode}/batch/${key}`}
                       className="group block bg-white border border-brand-border/50 rounded-2xl p-4 sm:p-5 hover:shadow-md hover:border-brand-secondary/40 hover:-translate-y-0.5 transition-all"
                     >
-                      <div className={`w-full h-0.5 rounded-full mb-4 ${el.status === "Delivered" ? "bg-green-400" : "bg-brand-secondary"}`} />
-                      <div className="flex items-start justify-between gap-2 mb-3">
-                        <h4 className="text-brand-primary text-sm font-bold leading-snug">{el.name}</h4>
-                        <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold shrink-0 ${
-                          el.status === "Delivered" ? "bg-green-100 text-green-700" : "bg-brand-highlight text-brand-secondary"
-                        }`}>
-                          {el.status}
-                        </span>
-                      </div>
-                      <div className="mb-3 inline-flex items-center rounded-lg border border-brand-border/50 bg-brand-card px-2.5 py-1 text-[11px] font-semibold text-brand-primary">
-                        {el.batch != null && el.serialNumber != null
-                          ? `Batch ${el.batch} · Serial ${el.serialNumber}`
-                          : "Unassigned batch / serial"}
-                      </div>
-                      <div className="space-y-1.5 text-xs text-brand-muted mb-4">
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="w-3 h-3 text-brand-secondary shrink-0" />
-                          <span className="truncate">{el.location}</span>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${allDelivered ? "bg-green-100" : "bg-brand-soft"}`}>
+                          <Layers className={`w-5 h-5 ${allDelivered ? "text-green-600" : "text-brand-secondary"}`} />
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Calendar className="w-3 h-3 text-brand-secondary shrink-0" />
-                          Cast: {new Date(el.castingDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                        <div className="min-w-0">
+                          <h4 className="text-brand-primary text-sm font-bold leading-snug">{label}</h4>
+                          <p className="text-brand-muted text-xs">{batchEls.length} element{batchEls.length !== 1 ? "s" : ""}</p>
                         </div>
+                      </div>
+                      <div className="flex gap-2 flex-wrap mb-4">
+                        {deliveredCount > 0 && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">
+                            {deliveredCount} delivered
+                          </span>
+                        )}
+                        {castedCount > 0 && (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-brand-highlight text-brand-secondary">
+                            {castedCount} casted
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 text-brand-secondary text-xs font-medium group-hover:gap-2 transition-all pt-3 border-t border-brand-border/40">
-                        View Details <ArrowRight className="w-3.5 h-3.5" />
+                        View Elements <ArrowRight className="w-3.5 h-3.5" />
                       </div>
                     </NavLink>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </>
-          )}
+                  );
+                })}
+              </div>
+            );
+          })()}
         </motion.section>
 
         {/* Create Element Dialog */}
