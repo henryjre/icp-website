@@ -1024,10 +1024,6 @@ export function PrecastElementDetail() {
                   <span className="text-brand-primary text-sm font-semibold">Element QR Code</span>
                 </div>
                 <QRCodeDisplay value={elementUrl} batch={element.batch} serialNumber={element.serialNumber} fallbackName={element.name} size={200} />
-                <div className="bg-[#f5f7fc] rounded-lg p-3 mt-4">
-                  <div className="text-brand-muted text-[10px] font-medium uppercase tracking-wider mb-1">Element URL</div>
-                  <div className="text-brand-body text-xs break-all leading-relaxed">{elementUrl}</div>
-                </div>
               </div>
             </div>
           </div>
