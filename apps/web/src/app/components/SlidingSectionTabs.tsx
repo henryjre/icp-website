@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { NavLink } from "react-router";
 import type { LucideIcon } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { EASE_STRUCTURAL } from "../lib/animations";
 
@@ -14,6 +16,7 @@ interface SlidingSectionTabsProps<T extends string> {
   tabs: SlidingSectionTab<T>[];
   activeTab: T;
   onTabChange: (tab: T) => void;
+  back?: { label: string; href: string };
 }
 
 type MobileIndicator = {
@@ -40,6 +43,7 @@ export function SlidingSectionTabs<T extends string>({
   tabs,
   activeTab,
   onTabChange,
+  back,
 }: SlidingSectionTabsProps<T>) {
   const shouldReduceMotion = useReducedMotion();
   const mobileTabsRef = useRef<HTMLDivElement | null>(null);
@@ -193,6 +197,15 @@ export function SlidingSectionTabs<T extends string>({
       </div>
 
       <div ref={desktopTabsRef} className="relative hidden items-center justify-center gap-1.5 px-6 py-3 md:flex">
+        {back && (
+          <NavLink
+            to={back.href}
+            className="absolute left-6 z-10 flex items-center gap-1 text-sm font-medium text-brand-muted hover:text-brand-primary transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            {back.label}
+          </NavLink>
+        )}
         <motion.span
           aria-hidden="true"
           className="pointer-events-none absolute bottom-3 left-0 top-3 rounded-full bg-brand-primary shadow-sm"

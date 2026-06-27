@@ -1,7 +1,8 @@
 import { useLoaderData, useParams, NavLink, useNavigate } from "react-router";
 import { Paginator } from "../components/Paginator";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PrecastElementDTO, ProjectActivityDTO, ProjectDocumentDTO } from "@icp/shared";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import type { PrecastElementDTO, ProgressImageDTO, ProgressUpdateDTO, ProjectActivityDTO, ProjectDocumentDTO } from "@icp/shared";
 import {
   ChevronRight,
   FileText,
@@ -20,6 +21,8 @@ import {
   Lock,
   Layers,
   Upload,
+  Camera,
+  Send,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { QRCodeDisplay } from "../components/QRCodeDisplay";
@@ -27,6 +30,7 @@ import { Modal } from "../components/Modal";
 import { DocumentViewer } from "../components/DocumentViewer";
 import { MobileQrScanner } from "../components/MobileQrScanner";
 import { SlidingSectionTabs } from "../components/SlidingSectionTabs";
+import { PageBreadcrumb } from "../components/PageBreadcrumb";
 import { apiClient, ApiClientError } from "../lib/api/client";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts/store";
 import {
@@ -36,6 +40,8 @@ import {
   staggerContainerVariants,
   staggerChildVariants,
   fadeUpVariants,
+  slideFromLeftVariants,
+  slideFromRightVariants,
   transitionFast,
   VIEWPORT,
 } from "../lib/animations";
@@ -53,7 +59,10 @@ const activityIcons: Record<string, { color: string; dot: string }> = {
 
 // ─── Tab types ───────────────────────────────────────────────────────────────
 
-type Tab = "details" | "testResults" | "planDocs" | "activity";
+type Tab = "details" | "progress" | "testResults" | "planDocs" | "activity";
+
+const COLLAPSED_PROGRESS_COUNT = 3;
+const MAX_PROGRESS_TIMELINE_ITEMS = 5;
 
 // ─── DocPreviewPanel ─────────────────────────────────────────────────────────
 
@@ -139,6 +148,33 @@ function DocPreviewPanel({ doc, onGetUrl }: DocPreviewPanelProps) {
   );
 }
 
+// ─── ProgressImageThumb ──────────────────────────────────────────────────────
+
+function ProgressImageThumb({ image, onOpen, className = "aspect-square" }: { image: ProgressImageDTO; onOpen: () => void; className?: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient.getProgressImageDownloadUrl(image.id)
+      .then((url) => { if (!cancelled) setSrc(url); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [image.id]);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`relative ${className} overflow-hidden rounded-lg border border-brand-border/50 bg-[#f5f7fc] transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/30 cursor-pointer`}
+      title={image.name}
+    >
+      {src
+        ? <img src={src} alt={image.name} className="absolute inset-0 h-full w-full object-cover" />
+        : <div className="absolute inset-0 animate-pulse bg-brand-soft" />}
+    </button>
+  );
+}
+
 // ─── ActivityDescription ─────────────────────────────────────────────────────
 
 function ActivityDescription({ description }: { description: string }) {
@@ -161,6 +197,33 @@ function ActivityDescription({ description }: { description: string }) {
       })}
     </div>
   );
+}
+
+// ─── progressImageToDoc ──────────────────────────────────────────────────────
+// Adapts a progress image into the document shape the shared DocumentViewer expects.
+
+function progressImageToDoc(image: ProgressImageDTO, date: string): ProjectDocumentDTO {
+  return {
+    id: image.id,
+    name: image.name,
+    mimeType: image.mimeType,
+    category: "TEST_RESULT",
+    scope: "ELEMENT",
+    type: "OTHER",
+    size: image.size,
+    uploadedBy: "",
+    date,
+    isConfidential: false,
+  };
+}
+
+function formatProgressDate(date: string) {
+  const isoMatch = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const parsed = isoMatch
+    ? new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]))
+    : new Date(date);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
 }
 
 // ─── SectionHeading ───────────────────────────────────────────────────────────
@@ -213,6 +276,14 @@ export function PrecastElementDetail() {
   const [activityLoading, setActivityLoading] = useState(false);
   const [testResults, setTestResults] = useState<ProjectDocumentDTO[]>(loaderElement?.testResults ?? []);
   const [planDocuments, setPlanDocuments] = useState<ProjectDocumentDTO[]>(loaderElement?.planDocuments ?? []);
+  const [progressUpdates, setProgressUpdates] = useState<ProgressUpdateDTO[]>(loaderElement?.progressUpdates ?? []);
+  const [progressNote, setProgressNote] = useState("");
+  const [progressFiles, setProgressFiles] = useState<{ file: File; previewUrl: string }[]>([]);
+  const [progressDragActive, setProgressDragActive] = useState(false);
+  const [postingProgress, setPostingProgress] = useState(false);
+  const [progressError, setProgressError] = useState<string | null>(null);
+  const [progressExpanded, setProgressExpanded] = useState(false);
+  const [viewingProgressImage, setViewingProgressImage] = useState<ProjectDocumentDTO | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isTestResultDragActive, setIsTestResultDragActive] = useState(false);
@@ -224,8 +295,17 @@ export function PrecastElementDetail() {
   const [activeTab, setActiveTab] = useState<Tab>("details");
   const testResultInputRef = useRef<HTMLInputElement | null>(null);
   const planDocInputRef = useRef<HTMLInputElement | null>(null);
+  const progressInputRef = useRef<HTMLInputElement | null>(null);
+  const progressTimelineRef = useRef<HTMLDivElement | null>(null);
+  const progressFirstMobileMarkerRef = useRef<HTMLElement | null>(null);
+  const progressLastMobileMarkerRef = useRef<HTMLElement | null>(null);
+  const progressFirstDesktopMarkerRef = useRef<HTMLElement | null>(null);
+  const progressLastDesktopMarkerRef = useRef<HTMLElement | null>(null);
+  const progressMeasureFrameRef = useRef<number | null>(null);
+  const [progressLineMetrics, setProgressLineMetrics] = useState({ left: 0, top: 0, height: 0 });
+  const [progressLineFollowingToggle, setProgressLineFollowingToggle] = useState(false);
   const sectionRefs = useRef<Record<Tab, HTMLElement | null>>({
-    details: null, testResults: null, planDocs: null, activity: null,
+    details: null, progress: null, testResults: null, planDocs: null, activity: null,
   });
   const isManualScrollingRef = useRef(false);
 
@@ -254,9 +334,81 @@ export function PrecastElementDetail() {
     ? `/projects/${projectCode}/e/${element.shortToken}`
     : "/projects";
   const elementUrl = element?.shortToken ? `${siteOrigin}/e/${element.shortToken}` : `${siteOrigin}${elementPath}`;
+  const displayableProgressUpdates = useMemo(
+    () => progressUpdates.slice(0, MAX_PROGRESS_TIMELINE_ITEMS),
+    [progressUpdates],
+  );
+  const visibleProgressUpdates = progressExpanded
+    ? displayableProgressUpdates
+    : displayableProgressUpdates.slice(0, COLLAPSED_PROGRESS_COUNT);
+  const hiddenProgressCount = Math.max(0, displayableProgressUpdates.length - COLLAPSED_PROGRESS_COUNT);
+  const canToggleProgressUpdates = hiddenProgressCount > 0;
+  const progressLimitReached = progressUpdates.length >= MAX_PROGRESS_TIMELINE_ITEMS;
+  const measureProgressLineMetrics = useCallback(() => {
+    const container = progressTimelineRef.current;
+    const isDesktop = typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches;
+    const first = isDesktop ? progressFirstDesktopMarkerRef.current : progressFirstMobileMarkerRef.current;
+    const last = isDesktop ? progressLastDesktopMarkerRef.current : progressLastMobileMarkerRef.current;
+    if (!container || !first || !last) {
+      return null;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    const firstRect = first.getBoundingClientRect();
+    const lastRect = last.getBoundingClientRect();
+    const left = firstRect.left + firstRect.width / 2 - containerRect.left;
+    const top = firstRect.top + firstRect.height / 2 - containerRect.top;
+    const bottom = lastRect.top + lastRect.height / 2 - containerRect.top;
+    const height = Math.max(0, bottom - top);
+    return { left, top, height };
+  }, []);
+  const updateProgressLineMetrics = useCallback(() => {
+    const metrics = measureProgressLineMetrics();
+    if (!metrics) {
+      setProgressLineMetrics({ left: 0, top: 0, height: 0 });
+      return null;
+    }
+
+    setProgressLineMetrics((current) => (
+      Math.abs(current.left - metrics.left) < 0.5 && Math.abs(current.top - metrics.top) < 0.5 && Math.abs(current.height - metrics.height) < 0.5
+        ? current
+        : metrics
+    ));
+    return metrics;
+  }, [measureProgressLineMetrics]);
+  const scheduleProgressLineMeasurements = useCallback((duration = 360, onComplete?: (metrics: { left: number; top: number; height: number } | null) => void) => {
+    if (typeof window === "undefined") return;
+    if (progressMeasureFrameRef.current != null) {
+      window.cancelAnimationFrame(progressMeasureFrameRef.current);
+    }
+
+    const startedAt = performance.now();
+    let latestMetrics = updateProgressLineMetrics();
+    const measureUntilSettled = (now: number) => {
+      latestMetrics = updateProgressLineMetrics();
+      if (now - startedAt < duration) {
+        progressMeasureFrameRef.current = window.requestAnimationFrame(measureUntilSettled);
+      } else {
+        progressMeasureFrameRef.current = null;
+        onComplete?.(latestMetrics);
+      }
+    };
+
+    progressMeasureFrameRef.current = window.requestAnimationFrame(measureUntilSettled);
+  }, [updateProgressLineMetrics]);
+  const handleToggleProgressExpanded = useCallback(() => {
+    setProgressLineFollowingToggle(true);
+    flushSync(() => {
+      setProgressExpanded((expanded) => !expanded);
+    });
+    scheduleProgressLineMeasurements(700, () => {
+      setProgressLineFollowingToggle(false);
+    });
+  }, [scheduleProgressLineMeasurements]);
 
   const tabs: { key: Tab; label: string; mobileLabel: string; icon: typeof FileText }[] = [
     { key: "details",     label: "Details",        mobileLabel: "Details",  icon: FileText },
+    { key: "progress",    label: "Progress",       mobileLabel: "Progress", icon: Camera },
     { key: "testResults", label: "Test Results",   mobileLabel: "Tests",    icon: FileText },
     { key: "planDocs",    label: "Plan Documents", mobileLabel: "Plans",    icon: Layers },
     ...(canViewActivity ? [{ key: "activity" as Tab, label: "Activity", mobileLabel: "Activity", icon: History }] : []),
@@ -273,6 +425,7 @@ export function PrecastElementDetail() {
     if (loaderElement) {
       setTestResults(loaderElement.testResults);
       setPlanDocuments(loaderElement.planDocuments);
+      setProgressUpdates(loaderElement.progressUpdates);
       setForm(getDraft(draftKey, {
         batch: loaderElement.batch?.toString() ?? "",
         serialNumber: loaderElement.serialNumber ?? "",
@@ -288,6 +441,33 @@ export function PrecastElementDetail() {
   useEffect(() => {
     if (editing) setDraft(draftKey, form);
   }, [editing, form, draftKey]);
+
+  // Revoke any staged progress-image preview URLs when leaving the page.
+  useEffect(() => () => {
+    progressFiles.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useLayoutEffect(() => {
+    updateProgressLineMetrics();
+    const frame = window.requestAnimationFrame(updateProgressLineMetrics);
+    const settleTimer = window.setTimeout(updateProgressLineMetrics, 80);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer);
+    };
+  }, [canToggleProgressUpdates, progressExpanded, updateProgressLineMetrics, visibleProgressUpdates.length]);
+
+  useEffect(() => {
+    window.addEventListener("resize", updateProgressLineMetrics);
+    return () => window.removeEventListener("resize", updateProgressLineMetrics);
+  }, [updateProgressLineMetrics]);
+
+  useEffect(() => () => {
+    if (progressMeasureFrameRef.current != null) {
+      window.cancelAnimationFrame(progressMeasureFrameRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (!canViewActivity || !resolvedElementId) {
@@ -447,6 +627,74 @@ export function PrecastElementDetail() {
     } finally { setUploading(false); }
   };
 
+  const addProgressFiles = (files: FileList | File[]) => {
+    const images = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    if (images.length === 0) return;
+    const file = images[0];
+    setProgressFiles((prev) => {
+      prev.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
+      return [{ file, previewUrl: URL.createObjectURL(file) }];
+    });
+  };
+
+  const removeProgressFile = (index: number) => {
+    setProgressFiles((prev) => {
+      const target = prev[index];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handlePostProgress = async () => {
+    if (!resolvedElementId) return;
+    if (progressLimitReached) {
+      setProgressError(`This element already has the maximum of ${MAX_PROGRESS_TIMELINE_ITEMS} progress updates.`);
+      return;
+    }
+    const note = progressNote.trim();
+    if (note.length === 0 && progressFiles.length === 0) return;
+    setPostingProgress(true); setProgressError(null);
+    try {
+      const images = [];
+      for (const { file } of progressFiles) {
+        const upload = await apiClient.createProgressUpdateUploadUrl(resolvedElementId, {
+          fileName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          sizeBytes: file.size,
+        });
+        await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+        images.push({ name: file.name, mimeType: file.type || "application/octet-stream", sizeBytes: file.size, s3Key: upload.s3Key });
+      }
+      const update = await apiClient.createProgressUpdate(resolvedElementId, { note, images });
+      setProgressLineFollowingToggle(true);
+      flushSync(() => {
+        setProgressUpdates((prev) => [update, ...prev]);
+      });
+      scheduleProgressLineMeasurements(700, () => {
+        setProgressLineFollowingToggle(false);
+      });
+      progressFiles.forEach(({ previewUrl }) => URL.revokeObjectURL(previewUrl));
+      setProgressFiles([]);
+      setProgressNote("");
+    } catch (err) {
+      setProgressError(err instanceof ApiClientError ? err.message : "Failed to post update");
+    } finally { setPostingProgress(false); }
+  };
+
+  const handleDeleteProgress = async (update: ProgressUpdateDTO) => {
+    if (!window.confirm("Delete this progress update and its photo?")) return;
+    try {
+      await apiClient.deleteProgressUpdate(update.id);
+      setProgressLineFollowingToggle(true);
+      flushSync(() => {
+        setProgressUpdates((prev) => prev.filter((u) => u.id !== update.id));
+      });
+      scheduleProgressLineMeasurements(700, () => {
+        setProgressLineFollowingToggle(false);
+      });
+    } catch (err) { setProgressError(err instanceof ApiClientError ? err.message : "Failed to delete update"); }
+  };
+
   const handleToggleConfidential = async (document: ProjectDocumentDTO, category: "TEST_RESULT" | "PLAN") => {
     try {
       const updated = await apiClient.updateElementDocument(document.id, { isConfidential: !document.isConfidential });
@@ -481,6 +729,17 @@ export function PrecastElementDetail() {
   const visiblePlanDocsPaged = visiblePlanDocuments.slice((planDocPage - 1) * DOC_PAGE_SIZE, planDocPage * DOC_PAGE_SIZE);
   const testResultTotalPages = Math.ceil(visibleTestResults.length / DOC_PAGE_SIZE);
   const planDocTotalPages = Math.ceil(visiblePlanDocuments.length / DOC_PAGE_SIZE);
+  const progressFillHeight = progressLineMetrics.height;
+  const progressTrackTransition = shouldReduceMotion || progressLineFollowingToggle
+    ? { duration: 0 }
+    : { duration: 0.35, ease: EASE_STRUCTURAL };
+  const progressFillTransition = shouldReduceMotion || progressLineFollowingToggle
+    ? { duration: 0 }
+    : {
+        left: { duration: 0.35, ease: EASE_STRUCTURAL },
+        top: { duration: 0.35, ease: EASE_STRUCTURAL },
+        height: { duration: 0.65, ease: EASE_STRUCTURAL },
+      };
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -505,14 +764,17 @@ export function PrecastElementDetail() {
             animate="animate"
           >
             <motion.div
-              className="flex min-w-0 flex-1 items-center gap-2 text-white/75 text-sm"
+              className="min-w-0 flex-1"
               variants={shouldReduceMotion ? undefined : heroItemVariants}
             >
-              <NavLink to="/projects" className="hover:text-white transition-colors shrink-0">Projects</NavLink>
-              <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-              <NavLink to={projectPath} className="hover:text-white transition-colors min-w-0 truncate">{element.projectName}</NavLink>
-              <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-              <span className="text-white/95 min-w-0 truncate">{element.name}</span>
+              <PageBreadcrumb
+                variant="light"
+                items={[
+                  { label: "Projects", href: "/projects" },
+                  { label: element.projectName, href: projectPath },
+                  { label: element.name },
+                ]}
+              />
             </motion.div>
 
           </motion.div>
@@ -603,7 +865,7 @@ export function PrecastElementDetail() {
       {/* ── Sticky section navigation ───────────────────────────────────── */}
       <div className="sticky top-[72px] sm:top-[80px] z-40 bg-[#f5f7fc]/95 backdrop-blur-md">
         <div className="max-w-[80rem] mx-auto border-b border-brand-border/40">
-          <SlidingSectionTabs tabs={tabs} activeTab={activeTab} onTabChange={scrollToSection} />
+          <SlidingSectionTabs tabs={tabs} activeTab={activeTab} onTabChange={scrollToSection} back={{ label: "Project Details", href: projectPath }} />
         </div>
       </div>
 
@@ -770,6 +1032,308 @@ export function PrecastElementDetail() {
             </div>
           </div>
         </section>
+
+        {/* ── Section: Progress Details ─────────────────────────────────── */}
+        <motion.section
+          ref={(el) => { sectionRefs.current.progress = el; }}
+          variants={shouldReduceMotion ? undefined : fadeUpVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={VIEWPORT}
+        >
+          <SectionHeading icon={Camera} label="Progress Details" />
+          <p className="text-brand-muted text-sm mt-1 mb-4">Field photos and notes tracking how this element progressed.</p>
+
+          {progressError && (
+            <div className="mb-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3 flex items-center gap-2">
+              <X className="w-4 h-4 shrink-0" /> {progressError}
+            </div>
+          )}
+
+          {canEdit && progressLimitReached && (
+            <div className="mb-6 rounded-2xl border border-brand-border/60 bg-white px-4 py-4 shadow-sm sm:px-6">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft">
+                  <CheckCircle2 className="h-4 w-4 text-brand-secondary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-brand-primary">Progress update limit reached</p>
+                  <p className="mt-0.5 text-xs text-brand-muted">This element can have up to {MAX_PROGRESS_TIMELINE_ITEMS} progress updates. Delete an update to post a new one.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {canEdit && !progressLimitReached && (
+            <div className="mb-6 bg-white border border-brand-border/60 rounded-2xl p-4 sm:p-6 shadow-sm">
+              <textarea
+                value={progressNote}
+                onChange={(e) => setProgressNote(e.target.value)}
+                rows={3}
+                placeholder="What changed? e.g. Stripped from mould, cured 7 days…"
+                className={`${inputCls} resize-none`}
+              />
+
+              {progressFiles[0] && (
+                <div className="mt-3 flex items-start gap-3 rounded-xl border border-brand-border/60 bg-[#f5f7fc] p-2">
+                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-brand-border/50 bg-white">
+                    <img src={progressFiles[0].previewUrl} alt={progressFiles[0].file.name} className="absolute inset-0 h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeProgressFile(0)}
+                      aria-label={`Remove ${progressFiles[0].file.name}`}
+                      className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75 transition-colors cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="min-w-0 pt-1">
+                    <p className="truncate text-sm font-semibold text-brand-primary">{progressFiles[0].file.name}</p>
+                    <p className="mt-1 text-xs text-brand-muted">One progress photo will be attached to this update.</p>
+                  </div>
+                </div>
+              )}
+
+              <div
+                className={`mt-3 rounded-2xl border-2 border-dashed p-4 sm:p-5 text-center transition-colors ${
+                  progressDragActive ? "border-brand-primary bg-brand-soft" : "border-brand-border hover:border-brand-secondary/60 bg-[#f5f7fc]"
+                }`}
+                onDragOver={(e) => { e.preventDefault(); setProgressDragActive(true); }}
+                onDragLeave={(e) => { e.preventDefault(); setProgressDragActive(false); }}
+                onDrop={(e) => { e.preventDefault(); setProgressDragActive(false); if (e.dataTransfer.files?.length) addProgressFiles(e.dataTransfer.files); }}
+              >
+                <div className="flex justify-center mb-2">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${progressDragActive ? "bg-brand-primary/10" : "bg-white"}`}>
+                    <Upload className="w-4 h-4 text-brand-secondary" />
+                  </div>
+                </div>
+                <p className="text-brand-primary text-sm font-semibold mb-0.5">
+                  {progressDragActive ? "Drop photo here" : <><span className="sm:hidden">Add photo</span><span className="hidden sm:inline">Drag one photo here or browse</span></>}
+                </p>
+                <p className="text-brand-muted text-xs mb-3">JPG, PNG, HEIC — one image only</p>
+                <button
+                  type="button"
+                  className="min-h-10 px-4 py-2 rounded-lg border border-brand-border text-brand-primary bg-white text-sm font-medium hover:bg-[#f5f7fc] transition-colors cursor-pointer"
+                  onClick={() => progressInputRef.current?.click()}
+                >
+                  Browse Photo
+                </button>
+                <input
+                  ref={progressInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => { if (e.target.files?.length) addProgressFiles(e.target.files); e.currentTarget.value = ""; }}
+                />
+              </div>
+
+              <div className="flex justify-end mt-4 pt-4 border-t border-brand-border/40">
+                <button
+                  type="button"
+                  onClick={() => void handlePostProgress()}
+                  disabled={postingProgress || (progressNote.trim().length === 0 && progressFiles.length === 0)}
+                  className="min-h-11 px-5 py-2 rounded-lg bg-brand-primary text-white text-sm font-semibold flex items-center gap-1.5 hover:bg-brand-primary-hover transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  <Send className="w-4 h-4" /> {postingProgress ? "Posting…" : "Post Update"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {progressUpdates.length === 0 ? (
+            <div className="bg-white border border-dashed border-brand-border rounded-2xl p-8 text-center">
+              <Camera className="w-7 h-7 text-brand-muted mx-auto mb-2 opacity-40" />
+              <p className="text-brand-muted text-sm">No progress updates yet.</p>
+            </div>
+          ) : (
+            <div ref={progressTimelineRef} className="relative md:space-y-8">
+              {progressLineMetrics.height > 0 && (
+                <>
+                  <motion.div
+                    className="pointer-events-none absolute w-1 bg-brand-border/80 -translate-x-1/2 rounded-full z-20"
+                    initial={false}
+                    animate={{ left: progressLineMetrics.left, top: progressLineMetrics.top, height: progressLineMetrics.height }}
+                    transition={progressTrackTransition}
+                  />
+                  <motion.div
+                    className="pointer-events-none absolute w-0.5 bg-brand-primary -translate-x-1/2 rounded-full z-20"
+                    initial={shouldReduceMotion ? false : { left: progressLineMetrics.left, top: progressLineMetrics.top, height: 0 }}
+                    animate={{ left: progressLineMetrics.left, top: progressLineMetrics.top, height: progressFillHeight }}
+                    transition={progressFillTransition}
+                  />
+                </>
+              )}
+              <div className="space-y-4 md:space-y-8">
+                <AnimatePresence initial={false} mode="popLayout">
+                  {visibleProgressUpdates.map((update, index) => (
+                  <motion.div
+                    key={update.id}
+                    layout
+                    className="relative z-30 w-full"
+                    initial={shouldReduceMotion ? false : { opacity: 0, height: 0, y: -8 }}
+                    animate={shouldReduceMotion ? undefined : { opacity: 1, height: "auto", y: 0 }}
+                    exit={shouldReduceMotion ? undefined : { opacity: 0, height: 0, y: -8 }}
+                    transition={{ duration: 0.25, ease: EASE_STRUCTURAL }}
+                  >
+                    <motion.div
+                      className="flex md:hidden"
+                      variants={shouldReduceMotion ? undefined : slideFromLeftVariants}
+                      initial="hidden"
+                      whileInView="visible"
+                      viewport={VIEWPORT}
+                    >
+                      <div className="flex flex-col items-center mr-4 shrink-0">
+                        <div className="w-px flex-1 bg-transparent" style={{ minHeight: "1rem" }} />
+                        <div
+                          ref={(el) => {
+                            if (index === 0) progressFirstMobileMarkerRef.current = el;
+                            if (!canToggleProgressUpdates && index === visibleProgressUpdates.length - 1) progressLastMobileMarkerRef.current = el;
+                          }}
+                          className="relative z-30 h-9 min-w-16 px-2.5 rounded-full flex items-center justify-center border-2 shrink-0 bg-white border-brand-primary text-brand-primary shadow-sm"
+                        >
+                          <span className="whitespace-nowrap text-center text-[0.62rem] font-bold uppercase leading-none">{update.time}</span>
+                        </div>
+                        <div className="w-px flex-1 bg-transparent" style={{ minHeight: "1rem" }} />
+                      </div>
+                      <div className="flex-1 py-2 min-w-0">
+                        <div className="relative z-10 rounded-2xl p-4 border border-brand-border/60 bg-white shadow-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 text-brand-primary text-sm font-semibold">
+                                <Calendar className="w-3.5 h-3.5 text-brand-secondary shrink-0" />
+                                <span>{formatProgressDate(update.date)}</span>
+                              </div>
+                              <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-brand-muted">
+                                <User className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{update.author}</span>
+                                <span className="text-brand-border">/</span>
+                                <span className="shrink-0">{update.role}</span>
+                              </span>
+                            </div>
+                            {canEdit && (
+                              <button
+                                type="button"
+                                onClick={() => void handleDeleteProgress(update)}
+                                aria-label="Delete progress update"
+                                className="w-7 h-7 flex items-center justify-center rounded-lg text-brand-muted hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                          {update.note && (
+                            <p className="text-brand-body text-sm leading-relaxed whitespace-pre-line mt-2">{update.note}</p>
+                          )}
+                          {update.images[0] && (
+                            <ProgressImageThumb
+                              image={update.images[0]}
+                              className="mt-3 h-40 w-full"
+                              onOpen={() => setViewingProgressImage(progressImageToDoc(update.images[0], update.date))}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      className={`hidden md:flex md:flex-row items-center gap-6 ${index % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"}`}
+                      variants={shouldReduceMotion ? undefined : (index % 2 === 0 ? slideFromLeftVariants : slideFromRightVariants)}
+                      initial="hidden"
+                      whileInView="visible"
+                      viewport={VIEWPORT}
+                    >
+                      <div className="md:w-[calc(50%-2rem)] w-full">
+                        <div className="relative z-10 rounded-2xl p-4 border border-brand-border/60 bg-white shadow-sm transition-shadow hover:shadow-md">
+                          <div className="flex items-start gap-4">
+                            {update.images[0] && (
+                              <ProgressImageThumb
+                                image={update.images[0]}
+                                className="h-28 w-28 shrink-0"
+                                onOpen={() => setViewingProgressImage(progressImageToDoc(update.images[0], update.date))}
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 text-brand-primary text-sm font-semibold">
+                                <Calendar className="w-3.5 h-3.5 text-brand-secondary shrink-0" />
+                                <span>{formatProgressDate(update.date)}</span>
+                              </div>
+                              <span className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-brand-muted">
+                                <User className="w-3 h-3 shrink-0" />
+                                <span className="truncate">{update.author}</span>
+                                <span className="text-brand-border">/</span>
+                                <span className="shrink-0">{update.role}</span>
+                              </span>
+                              {update.note && (
+                                <p className="text-brand-body text-sm leading-relaxed whitespace-pre-line mt-2">{update.note}</p>
+                              )}
+                            </div>
+                            {canEdit && (
+                              <button
+                                type="button"
+                                onClick={() => void handleDeleteProgress(update)}
+                                aria-label="Delete progress update"
+                                className="w-7 h-7 flex items-center justify-center rounded-lg text-brand-muted hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer shrink-0"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="md:w-20 flex justify-center shrink-0">
+                        <div
+                          ref={(el) => {
+                            if (index === 0) progressFirstDesktopMarkerRef.current = el;
+                            if (!canToggleProgressUpdates && index === visibleProgressUpdates.length - 1) progressLastDesktopMarkerRef.current = el;
+                          }}
+                          className="relative z-30 h-10 min-w-20 px-3 rounded-full flex items-center justify-center border-2 shrink-0 bg-white border-brand-primary text-brand-primary shadow-sm"
+                        >
+                          <span className="whitespace-nowrap text-center text-[0.68rem] font-bold uppercase leading-none">{update.time}</span>
+                        </div>
+                      </div>
+                      <div className="hidden md:block md:w-[calc(50%-2rem)]" />
+                    </motion.div>
+                  </motion.div>
+                  ))}
+                </AnimatePresence>
+                {canToggleProgressUpdates && (
+                  <motion.div layout className="relative z-30 w-full">
+                    <div className="flex md:hidden">
+                      <div className="flex w-full items-center justify-center">
+                        <motion.button
+                          type="button"
+                          layout
+                          ref={(el) => { progressLastMobileMarkerRef.current = el; }}
+                          onClick={handleToggleProgressExpanded}
+                          aria-expanded={progressExpanded}
+                          className="relative z-10 min-h-10 w-full whitespace-nowrap rounded-full border-2 border-brand-primary bg-brand-primary px-4 py-2 text-[0.68rem] font-bold uppercase leading-none text-white shadow-sm transition-colors hover:bg-brand-primary-hover hover:border-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/25 cursor-pointer"
+                        >
+                          <span className="relative z-30">{progressExpanded ? "View Less" : "View More"}</span>
+                        </motion.button>
+                      </div>
+                    </div>
+                    <div className="hidden md:flex md:flex-row items-center gap-6">
+                      <div className="md:w-[calc(50%-2rem)]" />
+                      <div className="md:w-20 flex justify-center shrink-0">
+                        <motion.button
+                          type="button"
+                          layout
+                          ref={(el) => { progressLastDesktopMarkerRef.current = el; }}
+                          onClick={handleToggleProgressExpanded}
+                          aria-expanded={progressExpanded}
+                          className="relative z-10 min-h-10 whitespace-nowrap rounded-full border-2 border-brand-primary bg-brand-primary px-4 py-2 text-[0.68rem] font-bold uppercase leading-none text-white shadow-sm transition-colors hover:bg-brand-primary-hover hover:border-brand-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/25 cursor-pointer"
+                        >
+                          <span className="relative z-30">{progressExpanded ? "View Less" : "View More"}</span>
+                        </motion.button>
+                      </div>
+                      <div className="hidden md:block md:w-[calc(50%-2rem)]" />
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            </div>
+          )}
+        </motion.section>
 
         {/* ── Section: Test Results ─────────────────────────────────────── */}
         <motion.section
@@ -1086,6 +1650,18 @@ export function PrecastElementDetail() {
             projectId={resolvedProjectId ?? ""}
             getDownloadUrl={(doc) => apiClient.getDocumentDownloadUrl(doc.id)}
             onClose={() => setViewingDoc(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Progress image viewer ────────────────────────────────────────── */}
+      <AnimatePresence>
+        {viewingProgressImage && (
+          <DocumentViewer
+            doc={viewingProgressImage}
+            projectId={resolvedProjectId ?? ""}
+            getDownloadUrl={(doc) => apiClient.getProgressImageDownloadUrl(doc.id)}
+            onClose={() => setViewingProgressImage(null)}
           />
         )}
       </AnimatePresence>

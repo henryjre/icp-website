@@ -3,6 +3,8 @@ import type {
   Document,
   Element,
   Project,
+  ProgressUpdate,
+  ProgressImage,
   User,
   ActivityType,
   DocumentCategory,
@@ -12,9 +14,14 @@ import { formatBytes, toDateLabelParts, toDateOnly } from "../../utils/date.js";
 
 export type ActivityRecord = Activity & { actor: User };
 export type DocumentRecord = Document & { uploadedBy: User };
+export type ProgressUpdateRecord = ProgressUpdate & {
+  author: User;
+  images: ProgressImage[];
+};
 export type ElementRecord = Element & {
   createdBy: User;
   documents?: DocumentRecord[];
+  progressUpdates?: ProgressUpdateRecord[];
   activities?: ActivityRecord[];
   project?: Project;
 };
@@ -64,6 +71,24 @@ export function mapDocument(document: DocumentRecord) {
   };
 }
 
+export function mapProgressUpdate(update: ProgressUpdateRecord) {
+  const { date, time } = toDateLabelParts(update.createdAt);
+  return {
+    id: update.id,
+    note: update.note,
+    author: update.author.email,
+    role: update.author.role ?? "unassigned",
+    date,
+    time,
+    images: update.images.map((image) => ({
+      id: image.id,
+      name: image.name,
+      mimeType: image.mimeType,
+      size: formatBytes(image.sizeBytes),
+    })),
+  };
+}
+
 export function mapElementListItem(element: ElementRecord, projectName: string) {
   return {
     id: element.id,
@@ -85,6 +110,7 @@ export function mapElementListItem(element: ElementRecord, projectName: string) 
 export function mapElementDetail(element: ElementRecord, projectName: string) {
   const docs = (element.documents ?? []).filter((d) => d.scope === "ELEMENT");
   const activities = element.activities ?? [];
+  const progressUpdates = element.progressUpdates ?? [];
   const testResults = docs.filter((d) => d.category === "TEST_RESULT" as DocumentCategory).map(mapDocument);
   const planDocuments = docs.filter((d) => d.category === "PLAN" as DocumentCategory).map(mapDocument);
 
@@ -92,6 +118,7 @@ export function mapElementDetail(element: ElementRecord, projectName: string) {
     ...mapElementListItem(element, projectName),
     testResults,
     planDocuments,
+    progressUpdates: progressUpdates.map(mapProgressUpdate),
     activityHistory: activities.map(mapActivity),
   };
 }

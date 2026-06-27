@@ -3,11 +3,11 @@ import type { ProjectDTO } from "@icp/shared";
 import {
   Building2,
   Calendar,
-  ChevronRight,
   MapPin,
   ArrowRight,
   Layers,
 } from "lucide-react";
+import { PageBreadcrumb } from "../components/PageBreadcrumb";
 
 export function ProjectBatchDetail() {
   const { project } = useLoaderData() as { project: ProjectDTO | null };
@@ -60,20 +60,14 @@ export function ProjectBatchDetail() {
       {/* Breadcrumb header */}
       <div className="bg-white border-b border-brand-border/40">
         <div className="max-w-[80rem] mx-auto px-4 sm:px-6 py-4">
-          <nav className="flex items-center gap-2 text-sm text-brand-muted flex-wrap">
-            <NavLink to="/projects" className="hover:text-brand-primary transition-colors">
-              Projects
-            </NavLink>
-            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-            <NavLink
-              to={`/projects/${project.projectCode}`}
-              className="hover:text-brand-primary transition-colors truncate max-w-[200px]"
-            >
-              {project.name}
-            </NavLink>
-            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-            <span className="text-brand-primary font-semibold">{batchLabel}</span>
-          </nav>
+          <PageBreadcrumb
+            variant="dark"
+            items={[
+              { label: "Projects", href: "/projects" },
+              { label: project.name, href: `/projects/${project.projectCode}` },
+              { label: batchLabel },
+            ]}
+          />
         </div>
       </div>
 

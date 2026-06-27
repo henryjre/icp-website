@@ -6,7 +6,6 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  ChevronRight,
   Layers,
   FileText,
   User,
@@ -38,6 +37,7 @@ import { Modal } from "../components/Modal";
 import { Paginator } from "../components/Paginator";
 import { DocumentViewer } from "../components/DocumentViewer";
 import { SlidingSectionTabs } from "../components/SlidingSectionTabs";
+import { PageBreadcrumb } from "../components/PageBreadcrumb";
 import { GENERAL_PLAN_ACCEPT, inferDocumentType, isSupportedGeneralPlanFile } from "../lib/documents";
 import {
   EASE_STRUCTURAL,
@@ -539,12 +539,16 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
             animate="animate"
           >
             <motion.div
-              className="flex min-w-0 flex-1 items-center gap-2 text-white/75 text-sm"
+              className="min-w-0 flex-1"
               variants={shouldReduceMotion ? undefined : heroItemVariants}
             >
-              <NavLink to="/projects" className="hover:text-white transition-colors">Projects</NavLink>
-              <ChevronRight className="w-3.5 h-3.5" />
-              <span className="min-w-0 truncate text-white/95">{project.name}</span>
+              <PageBreadcrumb
+                variant="light"
+                items={[
+                  { label: "Projects", href: "/projects" },
+                  { label: project.name },
+                ]}
+              />
             </motion.div>
 
           </motion.div>
@@ -642,7 +646,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
       {/* ── Sticky section navigation ───────────────────────────────────── */}
       <div className="sticky top-[72px] sm:top-[80px] z-40 bg-[#f5f7fc]/95 backdrop-blur-md">
         <div className="max-w-[80rem] mx-auto border-b border-brand-border/40">
-          <SlidingSectionTabs tabs={tabs} activeTab={activeTab} onTabChange={scrollToSection} />
+          <SlidingSectionTabs tabs={tabs} activeTab={activeTab} onTabChange={scrollToSection} back={{ label: "Projects", href: "/projects" }} />
         </div>
       </div>
 

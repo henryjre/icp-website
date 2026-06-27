@@ -74,6 +74,10 @@ elementsRouter.get(
           include: { uploadedBy: true },
           orderBy: { createdAt: "desc" },
         },
+        progressUpdates: {
+          include: { author: true, images: true },
+          orderBy: { createdAt: "desc" },
+        },
         activities: {
           include: { actor: true },
           orderBy: { occurredAt: "desc" },

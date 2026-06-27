@@ -19,8 +19,10 @@ import type {
   ResetPasswordRequestDTO,
   SendInviteEmailRequestDTO,
   CreateElementRequestDTO,
+  CreateProgressUpdateRequestDTO,
   FinalizeElementDocumentRequestDTO,
   PrecastElementListItemDTO,
+  ProgressUpdateDTO,
   UpdateElementRequestDTO,
   UpdateProjectRequestDTO,
   UploadUrlResponseDTO,
@@ -418,6 +420,49 @@ export const apiClient = {
 
   async deleteElementDocument(documentId: string): Promise<void> {
     await request<void>(`/documents/${documentId}`, { method: "DELETE" });
+  },
+
+  async listElementProgress(elementId: string): Promise<ProgressUpdateDTO[]> {
+    const payload = await request<PaginatedResponse<ProgressUpdateDTO>>(
+      `/elements/${elementId}/progress`,
+      { method: "GET" },
+      { withAuth: false },
+    );
+    return payload.items;
+  },
+
+  async createProgressUpdateUploadUrl(
+    elementId: string,
+    input: { fileName: string; mimeType: string; sizeBytes: number },
+  ): Promise<UploadUrlResponseDTO> {
+    return request<UploadUrlResponseDTO>(`/elements/${elementId}/progress/upload-url`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  async createProgressUpdate(
+    elementId: string,
+    input: CreateProgressUpdateRequestDTO,
+  ): Promise<ProgressUpdateDTO> {
+    const payload = await request<{ progressUpdate: ProgressUpdateDTO }>(
+      `/elements/${elementId}/progress`,
+      { method: "POST", body: JSON.stringify(input) },
+    );
+    return payload.progressUpdate;
+  },
+
+  async deleteProgressUpdate(progressUpdateId: string): Promise<void> {
+    await request<void>(`/elements/progress/${progressUpdateId}`, { method: "DELETE" });
+  },
+
+  async getProgressImageDownloadUrl(imageId: string): Promise<string> {
+    const payload = await request<{ downloadUrl: string }>(
+      `/progress/images/${imageId}/download-url`,
+      { method: "GET" },
+      { withAuth: false },
+    );
+    return payload.downloadUrl;
   },
 
   async listUsers(status: UserStatus | "All", search?: string): Promise<UserManagementDTO[]> {

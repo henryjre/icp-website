@@ -43,6 +43,23 @@ export interface ProjectDocumentDTO {
   isConfidential: boolean;
 }
 
+export interface ProgressImageDTO {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: string;
+}
+
+export interface ProgressUpdateDTO {
+  id: string;
+  note: string;
+  author: string;
+  role: string;
+  date: string;
+  time: string;
+  images: ProgressImageDTO[];
+}
+
 export interface PrecastElementListItemDTO {
   id: string;
   projectId: string;
@@ -62,6 +79,7 @@ export interface PrecastElementListItemDTO {
 export interface PrecastElementDTO extends PrecastElementListItemDTO {
   testResults: ProjectDocumentDTO[];
   planDocuments: ProjectDocumentDTO[];
+  progressUpdates: ProgressUpdateDTO[];
   activityHistory: ProjectActivityDTO[];
 }
 
@@ -232,4 +250,14 @@ export interface FinalizeElementDocumentRequestDTO {
   mimeType: string;
   s3Key: string;
   isConfidential: boolean;
+}
+
+export interface CreateProgressUpdateRequestDTO {
+  note: string;
+  images: {
+    name: string;
+    mimeType: string;
+    sizeBytes: number;
+    s3Key: string;
+  }[];
 }

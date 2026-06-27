@@ -82,6 +82,7 @@ model User {
   createdProjects     Project[]            @relation("ProjectCreator")
   createdElements     Element[]            @relation("ElementCreator")
   uploadedDocuments   Document[]           @relation("DocumentUploader")
+  progressUpdates     ProgressUpdate[]     @relation("ProgressAuthor")
   activities          Activity[]           @relation("ActivityActor")
   createdInvites      InviteCode[]         @relation("InviteCreatedBy")
   archivedInvites     InviteCode[]         @relation("InviteArchivedBy")
@@ -165,10 +166,11 @@ model Project {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  createdBy  User       @relation("ProjectCreator", fields: [createdById], references: [id])
-  elements   Element[]
-  documents  Document[]
-  activities Activity[]
+  createdBy       User             @relation("ProjectCreator", fields: [createdById], references: [id])
+  elements        Element[]
+  documents       Document[]
+  progressUpdates ProgressUpdate[]
+  activities      Activity[]
 }
 
 model Element {
@@ -186,13 +188,46 @@ model Element {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
-  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy  User       @relation("ElementCreator", fields: [createdById], references: [id])
-  documents  Document[]
-  activities Activity[]
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy       User             @relation("ElementCreator", fields: [createdById], references: [id])
+  documents       Document[]
+  progressUpdates ProgressUpdate[]
+  activities      Activity[]
 
   @@unique([projectId, batch, serialNumber])
   @@index([projectId])
+}
+
+model ProgressUpdate {
+  id        String   @id @default(cuid())
+  projectId String
+  elementId String
+  note      String
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  element Element         @relation(fields: [elementId], references: [id], onDelete: Cascade)
+  author  User            @relation("ProgressAuthor", fields: [authorId], references: [id])
+  images  ProgressImage[]
+
+  @@index([elementId])
+  @@index([projectId])
+}
+
+model ProgressImage {
+  id               String   @id @default(cuid())
+  progressUpdateId String
+  s3Key            String   @unique
+  mimeType         String
+  sizeBytes        Int
+  name             String
+  createdAt        DateTime @default(now())
+
+  progressUpdate ProgressUpdate @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
+
+  @@index([progressUpdateId])
 }
 
 model Document {
