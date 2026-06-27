@@ -7,6 +7,7 @@ import { ProductOverview } from "./pages/ProductOverview";
 import { Projects } from "./pages/Projects";
 import { ProjectDetail } from "./pages/ProjectDetail";
 import { PrecastElementDetail } from "./pages/PrecastElementDetail";
+import { ProjectBatchDetail } from "./pages/ProjectBatchDetail";
 
 import { ContactUs } from "./pages/ContactUs";
 import { Login } from "./pages/Login";
@@ -155,6 +156,11 @@ export const router = createBrowserRouter([
       { path: "products", Component: ProductOverview },
       { path: "projects", Component: Projects, loader: projectsLoader },
       { path: "projects/:projectId", Component: ProjectDetail, loader: projectLoader },
+      {
+        path: "projects/:projectId/batch/:batch",
+        Component: ProjectBatchDetail,
+        loader: projectLoader,
+      },
       {
         path: "projects/:projectId/elements/:elementId",
         Component: PrecastElementDetail,
