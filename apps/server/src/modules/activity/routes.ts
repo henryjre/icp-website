@@ -14,7 +14,7 @@ const projectActivityWhere = (projectId: string): Prisma.ActivityWhereInput => (
   projectId,
   NOT: {
     elementId: { not: null },
-    type: { in: ["updated", "document"] },
+    type: { in: ["updated", "document", "comment"] },
   },
 });
 

@@ -1,6 +1,16 @@
+const MANILA_TIME_ZONE = "Asia/Manila";
+
 export function toDateLabelParts(value: Date) {
-  const date = value.toISOString().slice(0, 10);
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: MANILA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) => dateParts.find((item) => item.type === type)?.value ?? "";
+  const date = `${part("year")}-${part("month")}-${part("day")}`;
   const time = value.toLocaleTimeString("en-US", {
+    timeZone: MANILA_TIME_ZONE,
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,

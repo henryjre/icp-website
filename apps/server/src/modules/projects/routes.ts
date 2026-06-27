@@ -18,6 +18,8 @@ import { env } from "../../config/env.js";
 
 export const projectsRouter = Router();
 
+const projectDetailActivityTypes = ["updated", "document", "comment"];
+
 function canAccessConfidential(role?: "admin" | "editor" | "client") {
   return role === "admin" || role === "editor";
 }
@@ -135,7 +137,9 @@ projectsRouter.get(
 
     const safeProject = {
       ...project,
-      activities: canAccessConfidential(req.user?.role) ? project.activities : [],
+      activities: canAccessConfidential(req.user?.role)
+        ? project.activities.filter((activity) => !(activity.elementId && projectDetailActivityTypes.includes(activity.type)))
+        : [],
       documents: project.documents.filter((doc) => !doc.isConfidential || canAccessConfidential(req.user?.role)),
       elements: project.elements.map((element) => ({
         ...element,
