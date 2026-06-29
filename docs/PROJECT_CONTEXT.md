@@ -692,7 +692,7 @@ File: `apps/web/src/app/lib/api/client.ts`
 
 File: `apps/web/src/app/components/Layout.tsx`
 
-- Sticky header with animated dual logo (`/logo-icp.webp` and `/logo-exelcrete.webp`).
+- Sticky header with animated dual logo (`/logo-icp.webp` and `/logo-excelcrete.webp`).
 - Public nav and admin dropdown split; admin items visible only to admin.
 - Footer contains quick links (including legal pages), services list, contact info.
 - Footer quick-link click triggers scroll-to-top.
@@ -702,7 +702,7 @@ File: `apps/web/src/app/components/Layout.tsx`
 | Route | Page component | Loader | Notes |
 |---|---|---|---|
 | `/` | `Home` | `homeLoader` | Featured projects carousel + skeleton |
-| `/about` | `AboutUs` | None | ICP/Exelcrete tab toggle and long-form company profile |
+| `/about` | `AboutUs` | None | ICP/Excelcrete tab toggle and long-form company profile |
 | `/products` | `ProductOverview` | None | Public product/services content |
 | `/projects` | `Projects` | `projectsLoader` | Search + status filters + project cards |
 | `/projects/:projectId` | `ProjectDetail` | `projectLoader` | Resolves/canonicalizes to project code route |

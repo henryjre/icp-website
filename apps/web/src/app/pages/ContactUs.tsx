@@ -23,7 +23,7 @@ const offices = [
     type: "icp",
   },
   {
-    name: "Exelcrete Redimix — Main Plant",
+    name: "Excelcrete Redimix — Main Plant",
     address: "Andres Bijasa Rd. Brgy. Gaya-Gaya, San Jose del Monte, Bulacan, 3023",
     phone: "044-712-2055",
     email: "inquiry@icpfnetengineering.com",

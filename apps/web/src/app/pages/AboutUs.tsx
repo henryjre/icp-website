@@ -79,7 +79,7 @@ const companies: Record<CompanyKey, {
     projects: "500+",
   },
   excelcreet: {
-    logoText: "EXELCRETE",
+    logoText: "EXCELCRETE",
     logoSub: "REDIMIX",
     color: "blue",
     tagline: "Your Excellent Partner in Community-Building",
@@ -181,7 +181,7 @@ export function AboutUs() {
               className="text-white/80 mt-3 max-w-xl"
               variants={shouldReduceMotion ? undefined : heroItemVariants}
             >
-              Get to know ICP-FNET Engineering and Exelcrete Redimix — our story, values, and vision.
+              Get to know ICP-FNET Engineering and Excelcrete Redimix — our story, values, and vision.
             </motion.p>
           </motion.div>
         </div>
@@ -216,8 +216,8 @@ export function AboutUs() {
           >
             <div className="h-10 w-[148px] sm:w-[172px] flex items-center">
               <img
-                src="/logo-exelcrete.webp"
-                alt="Exelcrete Redimix logo"
+                src="/logo-excelcrete.webp"
+                alt="Excelcrete Redimix logo"
                 className={`h-full w-full object-contain transition ${active === "excelcreet" ? "grayscale-0 opacity-100" : "grayscale opacity-70"}`}
                 loading="lazy"
               />
@@ -419,7 +419,7 @@ export function AboutUs() {
                     <div className="flex-1 py-2">
                       <div className={`rounded-xl p-5 border ${item.company === "icp" ? "bg-brand-primary/10 border-brand-primary/20" : "bg-brand-highlight0/10 border-brand-accent/20"}`}>
                         <span className={`text-xs tracking-widest uppercase ${item.company === "icp" ? "text-brand-highlight" : "text-brand-accent"}`}>
-                          {item.company === "icp" ? "ICP-FNET Engineering" : "Exelcrete Redimix"}
+                          {item.company === "icp" ? "ICP-FNET Engineering" : "Excelcrete Redimix"}
                         </span>
                         <h4 className="text-white mt-1 mb-2" style={{ fontWeight: 700 }}>{item.title}</h4>
                         <p className="text-white/60 text-sm leading-relaxed whitespace-pre-line">{item.desc}</p>
@@ -438,7 +438,7 @@ export function AboutUs() {
                     <div className="md:w-[calc(50%-2rem)] w-full">
                       <div className={`rounded-xl p-6 border ${item.company === "icp" ? "bg-brand-primary/10 border-brand-primary/20" : "bg-brand-highlight0/10 border-brand-accent/20"} ${i % 2 === 0 ? "md:text-right" : "md:text-left"}`}>
                         <span className={`text-xs tracking-widest uppercase ${item.company === "icp" ? "text-brand-highlight" : "text-brand-accent"}`}>
-                          {item.company === "icp" ? "ICP-FNET Engineering" : "Exelcrete Redimix"}
+                          {item.company === "icp" ? "ICP-FNET Engineering" : "Excelcrete Redimix"}
                         </span>
                         <h4 className="text-white mt-1 mb-2" style={{ fontWeight: 700 }}>{item.title}</h4>
                         <p className="text-white/60 text-sm leading-relaxed whitespace-pre-line">{item.desc}</p>

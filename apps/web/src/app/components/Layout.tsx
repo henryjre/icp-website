@@ -47,7 +47,7 @@ export function Layout() {
   const navigation = useNavigation();
   const isNavigating = navigation.state !== "idle";
   const isAdmin = currentUser?.role === "admin";
-  const logos = ["/logo-icp.webp", "/logo-exelcrete.webp"];
+  const logos = ["/logo-icp.webp", "/logo-excelcrete.webp"];
 
   useEffect(() => {
     const handleScroll = () => {
