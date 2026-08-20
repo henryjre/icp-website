@@ -39,6 +39,7 @@ import { DocumentViewer } from "../components/DocumentViewer";
 import { SlidingSectionTabs } from "../components/SlidingSectionTabs";
 import { PageBreadcrumb } from "../components/PageBreadcrumb";
 import { GENERAL_PLAN_ACCEPT, inferDocumentType, isSupportedGeneralPlanFile } from "../lib/documents";
+import { uploadToPresignedUrl } from "../lib/uploads";
 import {
   EASE_STRUCTURAL,
   heroContainerVariants,
@@ -406,10 +407,18 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
   const cancelEdit = () => { setEditing(false); setError(null); clearDraft(draftKey); setEditForm(toEditForm(project)); };
 
   const uploadProjectThumbnail = async (file: File) => {
+    if (!file.type || !file.type.startsWith("image/")) {
+      setError("Thumbnail must be a JPG, PNG, WebP, or GIF file.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError(`File too large: ${file.name}. Max size is 10 MB.`);
+      return;
+    }
     setUploadingThumbnail(true); setError(null);
     try {
       const upload = await apiClient.createProjectThumbnailUploadUrl({ fileName: file.name, mimeType: file.type, sizeBytes: file.size });
-      await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type, "x-amz-acl": "public-read" }, body: file });
+      await uploadToPresignedUrl(upload.uploadUrl, file, { acl: "public-read", contentType: file.type });
       setEditForm((prev) => ({ ...prev, thumbnail: upload.publicUrl }));
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "Failed to upload thumbnail");
@@ -424,7 +433,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
     for (const file of files) {
       try {
         const upload = await apiClient.createProjectDocumentUploadUrl(projectId, { fileName: file.name, mimeType: file.type || "application/octet-stream", sizeBytes: file.size });
-        await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+        await uploadToPresignedUrl(upload.uploadUrl, file);
         await apiClient.finalizeProjectDocument(projectId, { name: file.name, category: "PROJECT_GENERAL", docType: inferDocumentType(file), sizeBytes: file.size, mimeType: file.type || "application/octet-stream", s3Key: upload.s3Key, isConfidential: false });
         succeeded += 1;
       } catch { failedFiles.push(file.name); }
@@ -482,7 +491,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
     setReplacingPlan(true); setError(null);
     try {
       const upload = await apiClient.createProjectDocumentUploadUrl(projectId, { fileName: file.name, mimeType: file.type || "application/octet-stream", sizeBytes: file.size });
-      await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+      await uploadToPresignedUrl(upload.uploadUrl, file);
       await apiClient.finalizeProjectDocument(projectId, { name: file.name, category: "PROJECT_PLAN", docType: inferDocumentType(file), sizeBytes: file.size, mimeType: file.type || "application/octet-stream", s3Key: upload.s3Key, isConfidential: false });
       const updated = await apiClient.getProject(projectId);
       setProject(updated); bumpActivityRevision();

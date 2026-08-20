@@ -8,6 +8,7 @@ import { Modal } from "../components/Modal";
 import { toast } from "../components/Toast";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts/store";
 import { GENERAL_PLAN_ACCEPT, inferDocumentType, isSupportedGeneralPlanFile } from "../lib/documents";
+import { uploadToPresignedUrl } from "../lib/uploads";
 import {
   heroContainerVariants,
   heroItemVariants,
@@ -109,6 +110,14 @@ export function CreateProject() {
 
   // ── Thumbnail upload ─────────────────────────────────────────────────────────
   const uploadThumbnail = async (file: File) => {
+    if (!file.type || !file.type.startsWith("image/")) {
+      toast.error("Thumbnail must be a JPG, PNG, WebP, or GIF file.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast.error(`File too large: ${file.name}. Max size is 10 MB.`);
+      return;
+    }
     setUploadingThumbnail(true);
     try {
       const payload = await apiClient.createProjectThumbnailUploadUrl({
@@ -117,14 +126,7 @@ export function CreateProject() {
         sizeBytes: file.size,
       });
 
-      await fetch(payload.uploadUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": file.type,
-          "x-amz-acl": "public-read",
-        },
-        body: file,
-      });
+      await uploadToPresignedUrl(payload.uploadUrl, file, { acl: "public-read", contentType: file.type });
 
       setForm((prev) => ({ ...prev, thumbnail: payload.publicUrl }));
       toast.success("Thumbnail uploaded");
@@ -157,13 +159,7 @@ export function CreateProject() {
       sizeBytes: file.size,
     });
 
-    await fetch(upload.uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": file.type || "application/octet-stream",
-      },
-      body: file,
-    });
+    await uploadToPresignedUrl(upload.uploadUrl, file);
 
     await apiClient.finalizeProjectDocument(projectId, {
       name: file.name,

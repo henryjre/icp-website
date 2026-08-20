@@ -33,6 +33,7 @@ import { SlidingSectionTabs } from "../components/SlidingSectionTabs";
 import { PageBreadcrumb } from "../components/PageBreadcrumb";
 import { apiClient, ApiClientError } from "../lib/api/client";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts/store";
+import { uploadToPresignedUrl } from "../lib/uploads";
 import {
   EASE_STRUCTURAL,
   heroContainerVariants,
@@ -610,7 +611,7 @@ export function PrecastElementDetail() {
         mimeType: file.type || "application/octet-stream",
         sizeBytes: file.size,
       });
-      await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+      await uploadToPresignedUrl(upload.uploadUrl, file);
       const doc = await apiClient.finalizeElementDocument(resolvedElementId, {
         name: file.name,
         category,
@@ -662,7 +663,7 @@ export function PrecastElementDetail() {
           mimeType: file.type || "application/octet-stream",
           sizeBytes: file.size,
         });
-        await fetch(upload.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file });
+        await uploadToPresignedUrl(upload.uploadUrl, file);
         images.push({ name: file.name, mimeType: file.type || "application/octet-stream", sizeBytes: file.size, s3Key: upload.s3Key });
       }
       const update = await apiClient.createProgressUpdate(resolvedElementId, { note, images });
