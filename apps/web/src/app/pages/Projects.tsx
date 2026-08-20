@@ -260,7 +260,7 @@ export function Projects() {
                               <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                                 <div className="flex items-center gap-1.5 text-gray-500 text-xs">
                                   <Layers className="w-3.5 h-3.5 text-brand-secondary" />
-                                  {project.elements.length} Precast Elements
+                                  {project.elementSummary.total} Precast Elements
                                 </div>
                                 <span className="flex items-center gap-1 text-brand-secondary text-xs group-hover:gap-2 transition-all">
                                   View Details <ArrowRight className="w-3.5 h-3.5" />

@@ -8,6 +8,7 @@ import { roleGuard } from "../../middleware/roleGuard.js";
 import { validate } from "../../middleware/validate.js";
 import {
   createElementBodySchema,
+  elementListQuerySchema,
   projectAndElementParamSchema,
   projectOnlyParamSchema,
   updateElementBodySchema,
@@ -36,23 +37,98 @@ function isIdentityConstraintError(error: unknown): error is Prisma.PrismaClient
 
 elementsRouter.get(
   "/:projectId/elements",
-  validate({ params: projectOnlyParamSchema }),
+  validate({ params: projectOnlyParamSchema, query: elementListQuerySchema }),
   asyncHandler(async (req, res) => {
+    const { page, pageSize, batch, status, search } = req.query as unknown as {
+      page: number;
+      pageSize: number;
+      batch?: number | "unassigned";
+      status?: "Casted" | "Delivered";
+      search?: string;
+    };
     const project = await prisma.project.findUnique({
       where: { id: req.params.projectId },
-      include: {
-        elements: {
-          include: { createdBy: true },
-          orderBy: { createdAt: "desc" },
-        },
-      },
+      select: { id: true, name: true },
     });
 
     if (!project) {
       throw new HttpError(404, "Project not found");
     }
 
-    const items = project.elements.map((element) => mapElementListItem(element, project.name));
+    const where: Prisma.ElementWhereInput = {
+      projectId: req.params.projectId,
+      ...(batch === "unassigned" ? { batch: null } : batch !== undefined ? { batch } : {}),
+      ...(status ? { status } : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { location: { contains: search, mode: "insensitive" } },
+              { serialNumber: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, elements] = await prisma.$transaction([
+      prisma.element.count({ where }),
+      prisma.element.findMany({
+        where,
+        include: { createdBy: true },
+        orderBy: [{ batch: "asc" }, { serialNumber: "asc" }, { createdAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const items = elements.map((element) => mapElementListItem(element, project.name));
+    return res.json({ items, total, page, pageSize, totalPages });
+  }),
+);
+
+elementsRouter.get(
+  "/:projectId/element-batches",
+  validate({ params: projectOnlyParamSchema }),
+  asyncHandler(async (req, res) => {
+    const project = await prisma.project.findUnique({
+      where: { id: req.params.projectId },
+      select: { id: true },
+    });
+
+    if (!project) {
+      throw new HttpError(404, "Project not found");
+    }
+
+    const groups = await prisma.element.groupBy({
+      by: ["batch", "status"],
+      where: { projectId: req.params.projectId },
+      _count: { _all: true },
+      orderBy: { batch: "asc" },
+    });
+
+    const summaries = new Map<number | null, { batch: number | null; total: number; delivered: number; casted: number }>();
+    for (const group of groups) {
+      const current = summaries.get(group.batch) ?? { batch: group.batch, total: 0, delivered: 0, casted: 0 };
+      const count = group._count._all;
+      current.total += count;
+      if (group.status === "Delivered") current.delivered += count;
+      if (group.status === "Casted") current.casted += count;
+      summaries.set(group.batch, current);
+    }
+
+    const items = Array.from(summaries.values())
+      .sort((a, b) => {
+        if (a.batch === null) return 1;
+        if (b.batch === null) return -1;
+        return a.batch - b.batch;
+      })
+      .map((summary) => ({
+        key: summary.batch === null ? "unassigned" : String(summary.batch),
+        label: summary.batch === null ? "Unassigned" : `Batch ${summary.batch}`,
+        ...summary,
+      }));
+
     return res.json({ items, total: items.length });
   }),
 );

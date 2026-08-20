@@ -5,8 +5,6 @@ import { Home } from "./pages/Home";
 import { AboutUs } from "./pages/AboutUs";
 import { ProductOverview } from "./pages/ProductOverview";
 import { Projects } from "./pages/Projects";
-import { ProjectDetail } from "./pages/ProjectDetail";
-import { PrecastElementDetail } from "./pages/PrecastElementDetail";
 import { ProjectBatchDetail } from "./pages/ProjectBatchDetail";
 
 import { ContactUs } from "./pages/ContactUs";
@@ -15,8 +13,6 @@ import { Register } from "./pages/Register";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { AuthLayout } from "./components/AuthLayout";
-import { UsersAdmin } from "./pages/UsersAdmin";
-import { CreateProject } from "./pages/CreateProject";
 import { PrivacyPolicy } from "./pages/PrivacyPolicy";
 import { TermsAndConditions } from "./pages/TermsAndConditions";
 import { ApiClientError, apiClient } from "./lib/api/client";
@@ -155,7 +151,11 @@ export const router = createBrowserRouter([
       { path: "about", Component: AboutUs },
       { path: "products", Component: ProductOverview },
       { path: "projects", Component: Projects, loader: projectsLoader },
-      { path: "projects/:projectId", Component: ProjectDetail, loader: projectLoader },
+      {
+        path: "projects/:projectId",
+        loader: projectLoader,
+        lazy: async () => ({ Component: (await import("./pages/ProjectDetail")).ProjectDetail }),
+      },
       {
         path: "projects/:projectId/batch/:batch",
         Component: ProjectBatchDetail,
@@ -163,13 +163,13 @@ export const router = createBrowserRouter([
       },
       {
         path: "projects/:projectId/elements/:elementId",
-        Component: PrecastElementDetail,
         loader: elementLoader,
+        lazy: async () => ({ Component: (await import("./pages/PrecastElementDetail")).PrecastElementDetail }),
       },
       {
         path: "projects/:projectCode/e/:elementToken",
-        Component: PrecastElementDetail,
         loader: elementLoader,
+        lazy: async () => ({ Component: (await import("./pages/PrecastElementDetail")).PrecastElementDetail }),
       },
       {
         path: "e/:elementToken",
@@ -189,8 +189,16 @@ export const router = createBrowserRouter([
           { path: "reset-password", Component: ResetPassword },
         ],
       },
-      { path: "users", Component: UsersAdmin, loader: adminLoader },
-      { path: "admin/projects/new", Component: CreateProject, loader: adminLoader },
+      {
+        path: "users",
+        loader: adminLoader,
+        lazy: async () => ({ Component: (await import("./pages/UsersAdmin")).UsersAdmin }),
+      },
+      {
+        path: "admin/projects/new",
+        loader: adminLoader,
+        lazy: async () => ({ Component: (await import("./pages/CreateProject")).CreateProject }),
+      },
     ],
   },
 ]);

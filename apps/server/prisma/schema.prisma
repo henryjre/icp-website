@@ -196,6 +196,10 @@ model Element {
 
   @@unique([projectId, batch, serialNumber])
   @@index([projectId])
+  @@index([projectId, createdAt])
+  @@index([projectId, batch])
+  @@index([projectId, status])
+  @@index([projectId, batch, serialNumber])
 }
 
 model ProgressUpdate {

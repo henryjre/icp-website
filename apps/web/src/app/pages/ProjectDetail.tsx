@@ -1,6 +1,6 @@
 import { useLoaderData, useParams, NavLink, useNavigate, Await } from "react-router";
 import React, { Suspense, useState, useEffect, useRef } from "react";
-import type { CreateElementRequestDTO, PrecastElementListItemDTO, ProjectActivityDTO, ProjectDTO, ProjectDocumentDTO } from "@icp/shared";
+import type { CreateElementRequestDTO, PrecastElementListItemDTO, ProjectActivityDTO, ProjectDTO, ProjectDocumentDTO, ProjectElementBatchSummaryDTO } from "@icp/shared";
 import {
   MapPin,
   Calendar,
@@ -32,10 +32,8 @@ import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { apiClient, ApiClientError } from "../lib/api/client";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts/store";
 import { QRCodeDisplay } from "../components/QRCodeDisplay";
-import { PlanViewer } from "../components/PlanViewer";
 import { Modal } from "../components/Modal";
 import { Paginator } from "../components/Paginator";
-import { DocumentViewer } from "../components/DocumentViewer";
 import { SlidingSectionTabs } from "../components/SlidingSectionTabs";
 import { PageBreadcrumb } from "../components/PageBreadcrumb";
 import { GENERAL_PLAN_ACCEPT, inferDocumentType, isSupportedGeneralPlanFile } from "../lib/documents";
@@ -50,6 +48,9 @@ import {
   VIEWPORT,
   transitionFast,
 } from "../lib/animations";
+
+const PlanViewer = React.lazy(() => import("../components/PlanViewer").then((module) => ({ default: module.PlanViewer })));
+const DocumentViewer = React.lazy(() => import("../components/DocumentViewer").then((module) => ({ default: module.DocumentViewer })));
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -248,6 +249,9 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
   const [activityTotalPages, setActivityTotalPages] = useState(1);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityRevision, setActivityRevision] = useState(0);
+  const [batchSummaries, setBatchSummaries] = useState<ProjectElementBatchSummaryDTO[]>([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
+  const [batchRevision, setBatchRevision] = useState(0);
   const [planPreviewUrl, setPlanPreviewUrl] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [replacingPlan, setReplacingPlan] = useState(false);
@@ -318,7 +322,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
   const additionalProjectDocuments = project?.projectDocuments.filter((doc) => doc.category !== "PROJECT_PLAN") ?? [];
 
   useEffect(() => {
-    if (!projectId || !isSignedIn || !generalPlanDocument) { setPlanPreviewUrl(null); return; }
+    if (activeTab !== "plan" || !projectId || !isSignedIn || !generalPlanDocument) { setPlanPreviewUrl(null); return; }
     const run = async () => {
       setPlanLoading(true);
       try {
@@ -330,7 +334,25 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
       } finally { setPlanLoading(false); }
     };
     void run();
-  }, [projectId, isSignedIn, generalPlanDocument?.id]);
+  }, [activeTab, projectId, isSignedIn, generalPlanDocument?.id]);
+
+  useEffect(() => {
+    if (!projectId) {
+      setBatchSummaries([]);
+      return;
+    }
+    const run = async () => {
+      setBatchesLoading(true);
+      try {
+        setBatchSummaries(await apiClient.listProjectElementBatches(projectId));
+      } catch (err) {
+        setError(err instanceof ApiClientError ? err.message : "Failed to load element batches");
+      } finally {
+        setBatchesLoading(false);
+      }
+    };
+    void run();
+  }, [projectId, batchRevision]);
 
   const tabs: { key: Tab; label: string; mobileLabel: string; icon: typeof FileText }[] = [
     { key: "details", label: "Details", mobileLabel: "Details", icon: FileText },
@@ -621,7 +643,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
           transition={{ duration: 0.45, ease: EASE_STRUCTURAL, delay: 0.3 }}
         >
           {[
-            { label: "Elements", value: project.elements.length.toString(), icon: Building2 },
+            { label: "Elements", value: project.elementSummary.total.toString(), icon: Building2 },
             { label: "Documents", value: project.projectDocuments.length.toString(), icon: FileText },
             {
               label: "Date Started",
@@ -789,7 +811,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
                         value: project.completionDate ? new Date(project.completionDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "To Be Determined",
                         icon: isCompleted ? CheckCircle2 : Clock,
                       },
-                      { label: "Precast Elements", value: `${project.elements.length} element${project.elements.length !== 1 ? "s" : ""}`, icon: Layers },
+                      { label: "Precast Elements", value: `${project.elementSummary.total} element${project.elementSummary.total !== 1 ? "s" : ""}`, icon: Layers },
                       { label: "Project Documents", value: `${project.projectDocuments.length} file${project.projectDocuments.length !== 1 ? "s" : ""}`, icon: FileText },
                     ].map((item) => (
                       <motion.div
@@ -874,7 +896,9 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
                     </div>
                   </div>
                 ) : planPreviewUrl ? (
-                  <PlanViewer document={generalPlanDocument} url={planPreviewUrl} />
+                  <Suspense fallback={<div className="h-full bg-brand-card flex items-center justify-center text-brand-muted text-sm">Loading preview tools…</div>}>
+                    <PlanViewer document={generalPlanDocument} url={planPreviewUrl} />
+                  </Suspense>
                 ) : (
                   <div className="h-full bg-brand-card flex items-center justify-center text-brand-muted text-sm">Unable to preview this file.</div>
                 )}
@@ -923,72 +947,55 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
             )}
           </div>
 
-          {project.elements.length === 0 ? (
+          {batchesLoading ? (
+            <div className="flex items-center gap-2 text-brand-muted text-sm">
+              <div className="w-4 h-4 border-2 border-brand-border border-t-brand-secondary rounded-full animate-spin" />
+              Loading element batches…
+            </div>
+          ) : project.elementSummary.total === 0 ? (
             <div className="bg-white border border-dashed border-brand-border rounded-2xl p-8 sm:p-10 text-center">
               <Building2 className="w-8 h-8 text-brand-muted mx-auto mb-2 opacity-40" />
               <p className="text-brand-muted text-sm">No precast elements registered yet.</p>
             </div>
-          ) : (() => {
-            const batchGroups = Object.entries(
-              project.elements.reduce((acc, el) => {
-                const key = el.batch != null ? String(el.batch) : "unassigned";
-                (acc[key] ??= []).push(el);
-                return acc;
-              }, {} as Record<string, typeof project.elements>)
-            )
-              .sort(([a], [b]) => {
-                if (a === "unassigned") return 1;
-                if (b === "unassigned") return -1;
-                return Number(a) - Number(b);
-              })
-              .map(([key, els]) => ({
-                key,
-                label: key === "unassigned" ? "Unassigned" : `Batch ${key}`,
-                elements: els,
-              }));
-
-            return (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {batchGroups.map(({ key, label, elements: batchEls }) => {
-                  const deliveredCount = batchEls.filter((e) => e.status === "Delivered").length;
-                  const castedCount = batchEls.length - deliveredCount;
-                  const allDelivered = castedCount === 0;
-                  return (
-                    <NavLink
-                      key={key}
-                      to={`/projects/${project.projectCode}/batch/${key}`}
-                      className="group block bg-white border border-brand-border/50 rounded-2xl p-4 sm:p-5 hover:shadow-md hover:border-brand-secondary/40 hover:-translate-y-0.5 transition-all"
-                    >
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${allDelivered ? "bg-green-100" : "bg-brand-soft"}`}>
-                          <Layers className={`w-5 h-5 ${allDelivered ? "text-green-600" : "text-brand-secondary"}`} />
-                        </div>
-                        <div className="min-w-0">
-                          <h4 className="text-brand-primary text-sm font-bold leading-snug">{label}</h4>
-                          <p className="text-brand-muted text-xs">{batchEls.length} element{batchEls.length !== 1 ? "s" : ""}</p>
-                        </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {batchSummaries.map((batch) => {
+                const allDelivered = batch.casted === 0;
+                return (
+                  <NavLink
+                    key={batch.key}
+                    to={`/projects/${project.projectCode}/batch/${batch.key}`}
+                    className="group block bg-white border border-brand-border/50 rounded-2xl p-4 sm:p-5 hover:shadow-md hover:border-brand-secondary/40 hover:-translate-y-0.5 transition-all"
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${allDelivered ? "bg-green-100" : "bg-brand-soft"}`}>
+                        <Layers className={`w-5 h-5 ${allDelivered ? "text-green-600" : "text-brand-secondary"}`} />
                       </div>
-                      <div className="flex gap-2 flex-wrap mb-4">
-                        {deliveredCount > 0 && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">
-                            {deliveredCount} delivered
-                          </span>
-                        )}
-                        {castedCount > 0 && (
-                          <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-brand-highlight text-brand-secondary">
-                            {castedCount} casted
-                          </span>
-                        )}
+                      <div className="min-w-0">
+                        <h4 className="text-brand-primary text-sm font-bold leading-snug">{batch.label}</h4>
+                        <p className="text-brand-muted text-xs">{batch.total} element{batch.total !== 1 ? "s" : ""}</p>
                       </div>
-                      <div className="flex items-center gap-1 text-brand-secondary text-xs font-medium group-hover:gap-2 transition-all pt-3 border-t border-brand-border/40">
-                        View Elements <ArrowRight className="w-3.5 h-3.5" />
-                      </div>
-                    </NavLink>
-                  );
-                })}
-              </div>
-            );
-          })()}
+                    </div>
+                    <div className="flex gap-2 flex-wrap mb-4">
+                      {batch.delivered > 0 && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700">
+                          {batch.delivered} delivered
+                        </span>
+                      )}
+                      {batch.casted > 0 && (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-brand-highlight text-brand-secondary">
+                          {batch.casted} casted
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 text-brand-secondary text-xs font-medium group-hover:gap-2 transition-all pt-3 border-t border-brand-border/40">
+                      View Elements <ArrowRight className="w-3.5 h-3.5" />
+                    </div>
+                  </NavLink>
+                );
+              })}
+            </div>
+          )}
         </motion.section>
 
         {/* Create Element Dialog */}
@@ -1004,7 +1011,12 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
             projectCode={project.projectCode}
             onClose={(didCreate) => {
               setShowCreateDialog(false);
-              if (didCreate) { clearDraft(createDraftKey); void navigate(0); }
+              if (didCreate) {
+                clearDraft(createDraftKey);
+                setBatchRevision((value) => value + 1);
+                bumpActivityRevision();
+                void apiClient.getProject(project.id).then(setProject).catch(() => {});
+              }
             }}
             onCreate={async () => {
               if (!projectId) return;
@@ -1225,11 +1237,13 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
 
       <AnimatePresence>
         {viewingDoc && (
-          <DocumentViewer
-            doc={viewingDoc}
-            projectId={projectId ?? ""}
-            onClose={() => setViewingDoc(null)}
-          />
+          <Suspense fallback={null}>
+            <DocumentViewer
+              doc={viewingDoc}
+              projectId={projectId ?? ""}
+              onClose={() => setViewingDoc(null)}
+            />
+          </Suspense>
         )}
       </AnimatePresence>
     </div>

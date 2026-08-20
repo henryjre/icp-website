@@ -8,7 +8,9 @@ import type {
   LoginResponseDTO,
   PasswordRecoveryResponseDTO,
   PaginatedResponse,
+  PageResponse,
   PrecastElementDTO,
+  ProjectElementBatchSummaryDTO,
   ProjectDTO,
   ProjectDocumentDTO,
   ProjectListItemDTO,
@@ -239,6 +241,35 @@ export const apiClient = {
   async getProject(projectId: string): Promise<ProjectDTO> {
     const payload = await request<{ project: ProjectDTO }>(`/projects/${projectId}`, { method: "GET" });
     return payload.project;
+  },
+
+  async listProjectElements(projectId: string, input: {
+    page?: number;
+    pageSize?: number;
+    batch?: number | "unassigned";
+    status?: "Casted" | "Delivered";
+    search?: string;
+  } = {}): Promise<PageResponse<PrecastElementListItemDTO>> {
+    const query = new URLSearchParams();
+    query.set("page", String(input.page ?? 1));
+    query.set("pageSize", String(input.pageSize ?? 50));
+    if (input.batch !== undefined) query.set("batch", String(input.batch));
+    if (input.status) query.set("status", input.status);
+    if (input.search?.trim()) query.set("search", input.search.trim());
+    return request<PageResponse<PrecastElementListItemDTO>>(
+      `/projects/${projectId}/elements?${query.toString()}`,
+      { method: "GET" },
+      { withAuth: false },
+    );
+  },
+
+  async listProjectElementBatches(projectId: string): Promise<ProjectElementBatchSummaryDTO[]> {
+    const payload = await request<PaginatedResponse<ProjectElementBatchSummaryDTO>>(
+      `/projects/${projectId}/element-batches`,
+      { method: "GET" },
+      { withAuth: false },
+    );
+    return payload.items;
   },
 
   async createProject(input: CreateProjectRequestDTO): Promise<ProjectListItemDTO> {

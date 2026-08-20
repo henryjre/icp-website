@@ -27,7 +27,6 @@ import {
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { QRCodeDisplay } from "../components/QRCodeDisplay";
 import { Modal } from "../components/Modal";
-import { DocumentViewer } from "../components/DocumentViewer";
 import { MobileQrScanner } from "../components/MobileQrScanner";
 import { SlidingSectionTabs } from "../components/SlidingSectionTabs";
 import { PageBreadcrumb } from "../components/PageBreadcrumb";
@@ -46,6 +45,8 @@ import {
   transitionFast,
   VIEWPORT,
 } from "../lib/animations";
+
+const DocumentViewer = React.lazy(() => import("../components/DocumentViewer").then((module) => ({ default: module.DocumentViewer })));
 
 // ─── Activity styles ─────────────────────────────────────────────────────────
 
@@ -1642,24 +1643,28 @@ export function PrecastElementDetail() {
       {/* ── Document viewer ──────────────────────────────────────────────── */}
       <AnimatePresence>
         {viewingDoc && (
-          <DocumentViewer
-            doc={viewingDoc}
-            projectId={resolvedProjectId ?? ""}
-            getDownloadUrl={(doc) => apiClient.getDocumentDownloadUrl(doc.id)}
-            onClose={() => setViewingDoc(null)}
-          />
+          <React.Suspense fallback={null}>
+            <DocumentViewer
+              doc={viewingDoc}
+              projectId={resolvedProjectId ?? ""}
+              getDownloadUrl={(doc) => apiClient.getDocumentDownloadUrl(doc.id)}
+              onClose={() => setViewingDoc(null)}
+            />
+          </React.Suspense>
         )}
       </AnimatePresence>
 
       {/* ── Progress image viewer ────────────────────────────────────────── */}
       <AnimatePresence>
         {viewingProgressImage && (
-          <DocumentViewer
-            doc={viewingProgressImage}
-            projectId={resolvedProjectId ?? ""}
-            getDownloadUrl={(doc) => apiClient.getProgressImageDownloadUrl(doc.id)}
-            onClose={() => setViewingProgressImage(null)}
-          />
+          <React.Suspense fallback={null}>
+            <DocumentViewer
+              doc={viewingProgressImage}
+              projectId={resolvedProjectId ?? ""}
+              getDownloadUrl={(doc) => apiClient.getProgressImageDownloadUrl(doc.id)}
+              onClose={() => setViewingProgressImage(null)}
+            />
+          </React.Suspense>
         )}
       </AnimatePresence>
 

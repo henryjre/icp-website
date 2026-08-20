@@ -9,6 +9,14 @@ export const projectOnlyParamSchema = z.object({
   projectId: z.string().min(1),
 });
 
+export const elementListQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(50),
+  batch: z.union([z.coerce.number().int().positive(), z.literal("unassigned")]).optional(),
+  status: z.enum(["Casted", "Delivered"]).optional(),
+  search: z.string().trim().max(100).optional(),
+});
+
 export const createElementBodySchema = z.object({
   batch: z.number().int().positive(),
   serialNumber: z.string().trim().min(1).max(64).regex(/^\d+(?:-\d+)*$/, "Serial number must contain digits separated by single hyphens"),

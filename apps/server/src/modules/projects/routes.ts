@@ -74,17 +74,7 @@ projectsRouter.get(
     const projects = await prisma.project.findMany({
       include: {
         createdBy: true,
-        documents: {
-          where: { scope: "PROJECT" },
-          include: { uploadedBy: true },
-          orderBy: { createdAt: "desc" },
-        },
-        elements: {
-          include: {
-            createdBy: true,
-          },
-          orderBy: { createdAt: "desc" },
-        },
+        _count: { select: { elements: true } },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -101,35 +91,26 @@ projectsRouter.get(
   optionalAuthGuard,
   validate({ params: projectIdParamSchema }),
   asyncHandler(async (req, res) => {
-    const project = await prisma.project.findUnique({
-      where: { id: req.params.projectId },
-      include: {
-        createdBy: true,
-        documents: {
-          where: { scope: "PROJECT" },
-          include: { uploadedBy: true },
-          orderBy: { createdAt: "desc" },
-        },
-        elements: {
-          include: {
-            createdBy: true,
-            documents: {
-              include: { uploadedBy: true },
-              orderBy: { createdAt: "desc" },
-            },
-            activities: {
-              include: { actor: true },
-              orderBy: { occurredAt: "desc" },
-            },
+    const [project, totalElements, deliveredElements, castedElements] = await Promise.all([
+      prisma.project.findUnique({
+        where: { id: req.params.projectId },
+        include: {
+          createdBy: true,
+          documents: {
+            where: { scope: "PROJECT" },
+            include: { uploadedBy: true },
+            orderBy: { createdAt: "desc" },
           },
-          orderBy: { createdAt: "desc" },
+          activities: {
+            include: { actor: true },
+            orderBy: { occurredAt: "desc" },
+          },
         },
-        activities: {
-          include: { actor: true },
-          orderBy: { occurredAt: "desc" },
-        },
-      },
-    });
+      }),
+      prisma.element.count({ where: { projectId: req.params.projectId } }),
+      prisma.element.count({ where: { projectId: req.params.projectId, status: "Delivered" } }),
+      prisma.element.count({ where: { projectId: req.params.projectId, status: "Casted" } }),
+    ]);
 
     if (!project) {
       throw new HttpError(404, "Project not found");
@@ -141,14 +122,15 @@ projectsRouter.get(
         ? project.activities.filter((activity) => !(activity.elementId && projectDetailActivityTypes.includes(activity.type)))
         : [],
       documents: project.documents.filter((doc) => !doc.isConfidential || canAccessConfidential(req.user?.role)),
-      elements: project.elements.map((element) => ({
-        ...element,
-        activities: canAccessConfidential(req.user?.role) ? element.activities : [],
-        documents: element.documents.filter((doc) => !doc.isConfidential),
-      })),
     };
 
-    return res.json({ project: mapProjectDetail(safeProject) });
+    return res.json({
+      project: mapProjectDetail(safeProject, {
+        total: totalElements,
+        delivered: deliveredElements,
+        casted: castedElements,
+      }),
+    });
   }),
 );
 
@@ -196,9 +178,7 @@ projectsRouter.post(
         data: { projectCode: code },
         include: {
           createdBy: true,
-          elements: {
-            include: { createdBy: true },
-          },
+          _count: { select: { elements: true } },
         },
       });
     });
@@ -279,9 +259,7 @@ projectsRouter.patch(
       },
       include: {
         createdBy: true,
-        elements: {
-          include: { createdBy: true },
-        },
+        _count: { select: { elements: true } },
       },
     });
 

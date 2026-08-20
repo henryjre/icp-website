@@ -30,6 +30,15 @@ export type ProjectRecord = Project & {
   elements?: ElementRecord[];
   documents?: DocumentRecord[];
   activities?: ActivityRecord[];
+  _count?: {
+    elements?: number;
+  };
+};
+
+export type ProjectElementSummary = {
+  total: number;
+  delivered: number;
+  casted: number;
 };
 
 function normalizeActivityType(type: ActivityType):
@@ -125,6 +134,7 @@ export function mapElementDetail(element: ElementRecord, projectName: string) {
 
 export function mapProjectListItem(project: ProjectRecord) {
   const elements = project.elements ?? [];
+  const total = project._count?.elements ?? elements.length;
   return {
     id: project.id,
     projectCode: project.projectCode,
@@ -135,17 +145,36 @@ export function mapProjectListItem(project: ProjectRecord) {
     completionDate: project.completionDate ? toDateOnly(project.completionDate) : null,
     thumbnail: project.thumbnail,
     client: project.clientName,
+    elementSummary: {
+      total,
+      delivered: elements.filter((element) => element.status === "Delivered").length,
+      casted: elements.filter((element) => element.status === "Casted").length,
+    },
     elements: elements.map((element) => mapElementListItem(element, project.name)),
   };
 }
 
-export function mapProjectDetail(project: ProjectRecord) {
+export function mapProjectDetail(project: ProjectRecord, elementSummary?: ProjectElementSummary) {
   const elements = project.elements ?? [];
   const docs = (project.documents ?? []).filter((doc) => doc.scope === "PROJECT");
   const activities = project.activities ?? [];
+  const summary = elementSummary ?? {
+    total: elements.length,
+    delivered: elements.filter((element) => element.status === "Delivered").length,
+    casted: elements.filter((element) => element.status === "Casted").length,
+  };
+
   return {
-    ...mapProjectListItem(project),
-    elements: elements.map((element) => mapElementDetail(element, project.name)),
+    id: project.id,
+    projectCode: project.projectCode,
+    name: project.name,
+    location: project.location,
+    dateStarted: toDateOnly(project.dateStarted),
+    status: project.status,
+    completionDate: project.completionDate ? toDateOnly(project.completionDate) : null,
+    thumbnail: project.thumbnail,
+    client: project.clientName,
+    elementSummary: summary,
     projectDocuments: docs.map(mapDocument),
     activityHistory: activities.map(mapActivity),
   };

@@ -93,12 +93,28 @@ export interface ProjectListItemDTO {
   completionDate: string | null;
   thumbnail: string;
   client: string;
+  elementSummary: ProjectElementSummaryDTO;
   elements: PrecastElementListItemDTO[];
 }
 
-export interface ProjectDTO extends ProjectListItemDTO {
+export interface ProjectElementSummaryDTO {
+  total: number;
+  delivered: number;
+  casted: number;
+}
+
+export interface ProjectElementBatchSummaryDTO {
+  key: string;
+  batch: number | null;
+  label: string;
+  total: number;
+  delivered: number;
+  casted: number;
+}
+
+export interface ProjectDTO extends Omit<ProjectListItemDTO, "elements"> {
   activityHistory: ProjectActivityDTO[];
-  elements: PrecastElementDTO[];
+  elementSummary: ProjectElementSummaryDTO;
   projectDocuments: ProjectDocumentDTO[];
 }
 
@@ -129,6 +145,12 @@ export interface ApiErrorDTO {
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
+}
+
+export interface PageResponse<T> extends PaginatedResponse<T> {
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface ActivityPageDTO extends PaginatedResponse<ProjectActivityDTO> {
