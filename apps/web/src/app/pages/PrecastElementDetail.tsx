@@ -32,7 +32,13 @@ import { SlidingSectionTabs } from "../components/SlidingSectionTabs";
 import { PageBreadcrumb } from "../components/PageBreadcrumb";
 import { apiClient, ApiClientError } from "../lib/api/client";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts/store";
-import { uploadToPresignedUrl } from "../lib/uploads";
+import {
+  DOCUMENT_UPLOAD_ACCEPT,
+  MAX_DOCUMENT_UPLOAD_SIZE_BYTES,
+  inferDocumentType,
+  isSupportedDocumentUpload,
+} from "../lib/documents";
+import { getUploadErrorMessage, uploadToPresignedUrl } from "../lib/uploads";
 import {
   EASE_STRUCTURAL,
   heroContainerVariants,
@@ -597,14 +603,17 @@ export function PrecastElementDetail() {
     }
   };
 
-  const inferDocType = (fileName: string): "PDF" | "DOCX" | "XLSX" | "DWG" | "DXF" | "OTHER" => {
-    const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
-    const map: Record<string, "PDF" | "DOCX" | "XLSX" | "DWG" | "DXF"> = { pdf: "PDF", doc: "DOCX", docx: "DOCX", xls: "XLSX", xlsx: "XLSX", dwg: "DWG", dxf: "DXF" };
-    return map[ext] ?? "OTHER";
-  };
-
   const handleUpload = async (file: File, category: "TEST_RESULT" | "PLAN") => {
     if (!resolvedElementId) return;
+    const fileLabel = category === "TEST_RESULT" ? "test result" : "plan document";
+    if (!isSupportedDocumentUpload(file)) {
+      setUploadError(`${category === "TEST_RESULT" ? "Test results" : "Plan documents"} must be a PDF, DOCX, XLSX, DWG, or DXF file.`);
+      return;
+    }
+    if (file.size > MAX_DOCUMENT_UPLOAD_SIZE_BYTES) {
+      setUploadError(`File too large: ${file.name}. Max size is 25 MB.`);
+      return;
+    }
     setUploading(true); setUploadError(null);
     try {
       const upload = await apiClient.createElementDocumentUploadUrl(resolvedElementId, {
@@ -616,7 +625,7 @@ export function PrecastElementDetail() {
       const doc = await apiClient.finalizeElementDocument(resolvedElementId, {
         name: file.name,
         category,
-        docType: inferDocType(file.name),
+        docType: inferDocumentType(file),
         sizeBytes: file.size,
         mimeType: file.type || "application/octet-stream",
         s3Key: upload.s3Key,
@@ -625,7 +634,7 @@ export function PrecastElementDetail() {
       if (category === "TEST_RESULT") setTestResults((prev) => [doc, ...prev]);
       else setPlanDocuments((prev) => [doc, ...prev]);
     } catch (err) {
-      setUploadError(err instanceof ApiClientError ? err.message : "Upload failed");
+      setUploadError(err instanceof ApiClientError ? err.message : getUploadErrorMessage(err, fileLabel));
     } finally { setUploading(false); }
   };
 
@@ -1368,7 +1377,7 @@ export function PrecastElementDetail() {
                 <p className="text-brand-primary text-sm font-semibold mb-1">
                   {isTestResultDragActive ? "Drop files here" : <><span className="sm:hidden">Choose files to upload</span><span className="hidden sm:inline">Drag files here or browse</span></>}
                 </p>
-                <p className="text-brand-muted text-xs mb-3">PDF, DOCX, XLSX, DWG, DXF — max 10 MB</p>
+                <p className="text-brand-muted text-xs mb-3">PDF, DOCX, XLSX, DWG, DXF — max 25 MB</p>
                 <button
                   type="button"
                   disabled={uploading}
@@ -1377,7 +1386,7 @@ export function PrecastElementDetail() {
                 >
                   {uploading ? "Uploading…" : "Browse Files"}
                 </button>
-                <input ref={testResultInputRef} type="file" className="hidden" disabled={uploading}
+                <input ref={testResultInputRef} type="file" accept={DOCUMENT_UPLOAD_ACCEPT} className="hidden" disabled={uploading}
                   onChange={(e) => { const file = e.target.files?.[0]; if (file) void handleUpload(file, "TEST_RESULT"); e.currentTarget.value = ""; }} />
               </div>
             </div>
@@ -1475,7 +1484,7 @@ export function PrecastElementDetail() {
                 <p className="text-brand-primary text-sm font-semibold mb-1">
                   {isPlanDocDragActive ? "Drop files here" : <><span className="sm:hidden">Choose files to upload</span><span className="hidden sm:inline">Drag files here or browse</span></>}
                 </p>
-                <p className="text-brand-muted text-xs mb-3">PDF, DOCX, XLSX, DWG, DXF — max 10 MB</p>
+                <p className="text-brand-muted text-xs mb-3">PDF, DOCX, XLSX, DWG, DXF — max 25 MB</p>
                 <button
                   type="button"
                   disabled={uploading}
@@ -1484,7 +1493,7 @@ export function PrecastElementDetail() {
                 >
                   {uploading ? "Uploading…" : "Browse Files"}
                 </button>
-                <input ref={planDocInputRef} type="file" className="hidden" disabled={uploading}
+                <input ref={planDocInputRef} type="file" accept={DOCUMENT_UPLOAD_ACCEPT} className="hidden" disabled={uploading}
                   onChange={(e) => { const file = e.target.files?.[0]; if (file) void handleUpload(file, "PLAN"); e.currentTarget.value = ""; }} />
               </div>
             </div>

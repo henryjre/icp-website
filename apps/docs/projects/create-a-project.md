@@ -9,7 +9,7 @@ Use this when a new project needs to be added to the platform.
 Only admins can create projects.
 
 ::: tip Before you start
-Prepare the project name, client, location, start date, project status, thumbnail image, and general plan file. The general plan must be a PDF or supported image file. Files must be 10 MB or smaller.
+Prepare the project name, client, location, start date, project status, thumbnail image, and general plan file. The general plan must be a PDF or supported image file. Files must be 25 MB or smaller.
 :::
 
 ## Steps

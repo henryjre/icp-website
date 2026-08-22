@@ -9,7 +9,7 @@ Use this when a project needs supporting files such as drawings, forms, reports,
 Admins and editors can upload, mark confidential, download, and delete project documents. Clients can view and download only the documents available to them.
 
 ::: tip Before you start
-Each file must be 10 MB or smaller.
+Each file must be 25 MB or smaller.
 :::
 
 ## Upload documents

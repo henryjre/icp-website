@@ -8,7 +8,7 @@ import { Modal } from "../components/Modal";
 import { toast } from "../components/Toast";
 import { clearDraft, getDraft, setDraft } from "../lib/drafts/store";
 import { GENERAL_PLAN_ACCEPT, inferDocumentType, isSupportedGeneralPlanFile } from "../lib/documents";
-import { uploadToPresignedUrl } from "../lib/uploads";
+import { getUploadErrorMessage, uploadToPresignedUrl } from "../lib/uploads";
 import {
   heroContainerVariants,
   heroItemVariants,
@@ -19,7 +19,7 @@ import {
 } from "../lib/animations";
 
 const DRAFT_KEY = "form:create-project";
-const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
 
 type CreateProjectDraft = CreateProjectRequestDTO & {
   generalPlanName: string;
@@ -115,7 +115,7 @@ export function CreateProject() {
       return;
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      toast.error(`File too large: ${file.name}. Max size is 10 MB.`);
+      toast.error(`File too large: ${file.name}. Max size is 25 MB.`);
       return;
     }
     setUploadingThumbnail(true);
@@ -131,7 +131,7 @@ export function CreateProject() {
       setForm((prev) => ({ ...prev, thumbnail: payload.publicUrl }));
       toast.success("Thumbnail uploaded");
     } catch (err) {
-      toast.error(err instanceof ApiClientError ? err.message : "Failed to upload thumbnail");
+      toast.error(err instanceof ApiClientError ? err.message : getUploadErrorMessage(err, "thumbnail"));
     } finally {
       setUploadingThumbnail(false);
     }
@@ -142,7 +142,7 @@ export function CreateProject() {
     if (incoming.length === 0) return;
     const tooLarge = incoming.find((file) => file.size > MAX_FILE_SIZE_BYTES);
     if (tooLarge) {
-      toast.error(`File too large: ${tooLarge.name}. Max size is 10 MB.`);
+      toast.error(`File too large: ${tooLarge.name}. Max size is 25 MB.`);
       return;
     }
     setProjectDocumentFiles((prev) => [...prev, ...incoming]);
@@ -180,7 +180,7 @@ export function CreateProject() {
       return;
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      toast.error(`File too large: ${file.name}. Max size is 10 MB.`);
+      toast.error(`File too large: ${file.name}. Max size is 25 MB.`);
       return;
     }
     setGeneralPlanFile(file);
@@ -248,16 +248,16 @@ export function CreateProject() {
       if (generalPlanFile) {
         try {
           await uploadAndFinalizeProjectDocument(payload.id, generalPlanFile, "PROJECT_PLAN");
-        } catch {
-          failedUploads.push(generalPlanFile.name);
+        } catch (err) {
+          failedUploads.push(`${generalPlanFile.name} (${getUploadErrorMessage(err, "general plan")})`);
         }
       }
 
       for (const file of projectDocumentFiles) {
         try {
           await uploadAndFinalizeProjectDocument(payload.id, file, "PROJECT_GENERAL");
-        } catch {
-          failedUploads.push(file.name);
+        } catch (err) {
+          failedUploads.push(`${file.name} (${getUploadErrorMessage(err, "document")})`);
         }
       }
 
@@ -522,7 +522,7 @@ export function CreateProject() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  <p className="mt-2 text-xs text-gray-500">Supported plan formats: PDF, JPG, PNG, WebP, GIF • Max size: 10 MB</p>
+                  <p className="mt-2 text-xs text-gray-500">Supported plan formats: PDF, JPG, PNG, WebP, GIF • Max size: 25 MB</p>
                 </div>
 
                 {/* Additional Documents */}
@@ -556,7 +556,7 @@ export function CreateProject() {
                       }}
                     />
                   </div>
-                  <p className="mt-2 text-xs text-gray-500">Supported formats: pdf, docx, xlsx, dwg, dxf, jpg, png • Max size: 10 MB</p>
+                  <p className="mt-2 text-xs text-gray-500">Supported formats: pdf, docx, xlsx, dwg, dxf, jpg, png • Max size: 25 MB</p>
 
                   {/* Additional docs preview grid */}
                   {projectDocumentFiles.length > 0 && (

@@ -36,8 +36,13 @@ import { Modal } from "../components/Modal";
 import { Paginator } from "../components/Paginator";
 import { SlidingSectionTabs } from "../components/SlidingSectionTabs";
 import { PageBreadcrumb } from "../components/PageBreadcrumb";
-import { GENERAL_PLAN_ACCEPT, inferDocumentType, isSupportedGeneralPlanFile } from "../lib/documents";
-import { uploadToPresignedUrl } from "../lib/uploads";
+import {
+  GENERAL_PLAN_ACCEPT,
+  MAX_DOCUMENT_UPLOAD_SIZE_BYTES,
+  inferDocumentType,
+  isSupportedGeneralPlanFile,
+} from "../lib/documents";
+import { getUploadErrorMessage, uploadToPresignedUrl } from "../lib/uploads";
 import {
   EASE_STRUCTURAL,
   heroContainerVariants,
@@ -433,8 +438,8 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
       setError("Thumbnail must be a JPG, PNG, WebP, or GIF file.");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError(`File too large: ${file.name}. Max size is 10 MB.`);
+    if (file.size > MAX_DOCUMENT_UPLOAD_SIZE_BYTES) {
+      setError(`File too large: ${file.name}. Max size is 25 MB.`);
       return;
     }
     setUploadingThumbnail(true); setError(null);
@@ -443,7 +448,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
       await uploadToPresignedUrl(upload.uploadUrl, file, { acl: "public-read", contentType: file.type });
       setEditForm((prev) => ({ ...prev, thumbnail: upload.publicUrl }));
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Failed to upload thumbnail");
+      setError(err instanceof ApiClientError ? err.message : getUploadErrorMessage(err, "thumbnail"));
     } finally { setUploadingThumbnail(false); }
   };
 
@@ -458,7 +463,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
         await uploadToPresignedUrl(upload.uploadUrl, file);
         await apiClient.finalizeProjectDocument(projectId, { name: file.name, category: "PROJECT_GENERAL", docType: inferDocumentType(file), sizeBytes: file.size, mimeType: file.type || "application/octet-stream", s3Key: upload.s3Key, isConfidential: false });
         succeeded += 1;
-      } catch { failedFiles.push(file.name); }
+      } catch (err) { failedFiles.push(`${file.name} (${getUploadErrorMessage(err, "document")})`); }
     }
     try {
       const updated = await apiClient.getProject(projectId);
@@ -506,8 +511,8 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
       setError("General plans must be a PDF, JPG, PNG, WebP, or GIF file.");
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      setError(`File too large: ${file.name}. Max size is 10 MB.`);
+    if (file.size > MAX_DOCUMENT_UPLOAD_SIZE_BYTES) {
+      setError(`File too large: ${file.name}. Max size is 25 MB.`);
       return;
     }
     setReplacingPlan(true); setError(null);
@@ -518,7 +523,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
       const updated = await apiClient.getProject(projectId);
       setProject(updated); bumpActivityRevision();
     } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "Failed to replace general plan");
+      setError(err instanceof ApiClientError ? err.message : getUploadErrorMessage(err, "general plan"));
     } finally { setReplacingPlan(false); }
   };
 
@@ -1080,7 +1085,7 @@ function ProjectDetailInner({ loaderProject }: { loaderProject: ProjectDTO | nul
                   <p className="text-brand-primary text-sm font-semibold mb-1">
                     {isDocDragActive ? "Drop files here" : <><span className="sm:hidden">Choose files to upload</span><span className="hidden sm:inline">Drag files here or browse</span></>}
                   </p>
-                  <p className="text-brand-muted text-xs mb-3">PDF, DOCX, XLSX, DWG, DXF, JPG, PNG — max 10 MB</p>
+                  <p className="text-brand-muted text-xs mb-3">PDF, DOCX, XLSX, DWG, DXF, JPG, PNG — max 25 MB</p>
                   <button
                     type="button"
                     disabled={uploading}

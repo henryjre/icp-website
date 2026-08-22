@@ -9,7 +9,7 @@ Use this when an element needs test results, drawings, or plan files attached to
 Admins and editors can upload, download, mark confidential, and delete element documents. Clients can view only the files available to them.
 
 ::: tip Before you start
-Each file must be 10 MB or smaller.
+Each file must be 25 MB or smaller.
 :::
 
 ## Upload a test result

@@ -9,7 +9,7 @@ Use this when the main project plan needs to be added or updated.
 Admins and editors can upload or replace the general plan.
 
 ::: tip Before you start
-The general plan must be a PDF, JPG, PNG, WebP, or GIF file. The file must be 10 MB or smaller.
+The general plan must be a PDF, JPG, PNG, WebP, or GIF file. The file must be 25 MB or smaller.
 :::
 
 ## Upload during project creation

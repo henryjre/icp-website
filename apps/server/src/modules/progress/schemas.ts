@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
+
 export const elementIdParamSchema = z.object({
   elementId: z.string().min(1),
 });
@@ -15,7 +17,7 @@ export const progressImageParamSchema = z.object({
 export const progressUploadUrlBodySchema = z.object({
   fileName: z.string().min(1),
   mimeType: z.string().min(1),
-  sizeBytes: z.number().int().positive(),
+  sizeBytes: z.number().int().positive().max(MAX_UPLOAD_SIZE_BYTES, "File must be 25 MB or smaller."),
 });
 
 export const createProgressUpdateBodySchema = z
@@ -26,7 +28,7 @@ export const createProgressUpdateBodySchema = z
         z.object({
           name: z.string().min(1),
           mimeType: z.string().min(1),
-          sizeBytes: z.number().int().positive(),
+          sizeBytes: z.number().int().positive().max(MAX_UPLOAD_SIZE_BYTES, "File must be 25 MB or smaller."),
           s3Key: z.string().min(1),
         }),
       )

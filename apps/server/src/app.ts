@@ -31,7 +31,7 @@ export function createApp() {
   app.use("/api", apiRouter);
 
   app.use((req, res) => {
-    res.status(404).json({ message: `Route not found: ${req.method} ${req.path}` });
+    res.status(404).json({ message: "That page or resource could not be found." });
   });
 
   app.use(errorHandler);

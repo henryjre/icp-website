@@ -8,6 +8,34 @@ export class UploadError extends Error {
   }
 }
 
+export function getUploadErrorMessage(error: unknown, context = "file"): string {
+  if (error instanceof UploadError) {
+    if (error.status === 403) {
+      return `File storage could not accept this ${context}. Please try again or ask an administrator to check upload access.`;
+    }
+
+    if (error.status === 404) {
+      return `The upload location for this ${context} was not found. Please try again.`;
+    }
+
+    if (error.status === 408 || error.status === 409 || error.status === 410) {
+      return `The upload session for this ${context} expired. Please select the file again and retry.`;
+    }
+
+    if (error.status === 413) {
+      return `This ${context} is too large to upload.`;
+    }
+
+    if (error.status && error.status >= 500) {
+      return `File storage is unavailable right now. Please try again in a few minutes.`;
+    }
+
+    return `Unable to upload this ${context}. Please check your connection and try again.`;
+  }
+
+  return `Unable to upload this ${context} right now. Please try again.`;
+}
+
 export async function uploadToPresignedUrl(
   uploadUrl: string,
   file: File,

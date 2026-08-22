@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const MAX_UPLOAD_SIZE_BYTES = 25 * 1024 * 1024;
+
 export const projectIdParamSchema = z.object({
   projectId: z.string().min(1),
 });
@@ -19,5 +21,5 @@ export const updateProjectBodySchema = createProjectBodySchema.partial().strict(
 export const thumbnailUploadBodySchema = z.object({
   fileName: z.string().min(1),
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/gif"]),
-  sizeBytes: z.number().int().positive(),
+  sizeBytes: z.number().int().positive().max(MAX_UPLOAD_SIZE_BYTES, "File must be 25 MB or smaller."),
 });

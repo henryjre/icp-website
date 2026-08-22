@@ -78,6 +78,11 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   }
 
   if (err instanceof HttpError) {
+    if (err.statusCode >= 500) {
+      console.error(err);
+      return res.status(err.statusCode).json({ message: "Something went wrong on our end. Please try again later." });
+    }
+
     return res.status(err.statusCode).json({
       message: err.message,
       details: err.details,
@@ -88,7 +93,11 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     if (err.code === "P2025") {
       return res.status(404).json({ message: "Resource not found" });
     }
-    return res.status(400).json({ message: err.message });
+    if (err.code === "P2002") {
+      return res.status(409).json({ message: "A record with these details already exists." });
+    }
+    console.error(err);
+    return res.status(400).json({ message: "Unable to save your changes. Please check the information and try again." });
   }
 
   console.error(err);
