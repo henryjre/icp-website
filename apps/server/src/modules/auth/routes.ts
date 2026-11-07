@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { prisma } from "../../lib/prisma.js";
 import { hashToken } from "../../lib/hash.js";
@@ -15,6 +15,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { validate } from "../../middleware/validate.js";
 import { authGuard } from "../../middleware/authGuard.js";
 import {
+  devLoginBodySchema,
   forgotPasswordBodySchema,
   loginBodySchema,
   logoutBodySchema,
@@ -79,6 +80,39 @@ function getLoginBlockedMessage(status: "Pending" | "Active" | "Rejected" | "Arc
   }
   if (status === "Archived") return "Account archived";
   return "Invalid credentials";
+}
+
+async function respondWithSession(res: Response, user: Parameters<typeof toUserDto>[0]) {
+  if (user.status !== "Active" || !user.isActive || !user.role) {
+    return res.status(403).json({
+      message: getLoginBlockedMessage(user.status, user.rejectedReason),
+    });
+  }
+
+  const accessToken = createAccessToken({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+  });
+  const refreshToken = createRefreshToken({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+  });
+
+  await prisma.refreshToken.create({
+    data: {
+      userId: user.id,
+      tokenHash: hashToken(refreshToken),
+      expiresAt: ttlToDate(env.JWT_REFRESH_TTL),
+    },
+  });
+
+  return res.json({
+    accessToken,
+    refreshToken,
+    user: toUserDto(user),
+  });
 }
 
 authRouter.post(
@@ -158,38 +192,25 @@ authRouter.post(
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    if (user.status !== "Active" || !user.isActive || !user.role) {
-      return res.status(403).json({
-        message: getLoginBlockedMessage(user.status, user.rejectedReason),
-      });
-    }
-
-    const accessToken = createAccessToken({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    });
-    const refreshToken = createRefreshToken({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    });
-
-    await prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: hashToken(refreshToken),
-        expiresAt: ttlToDate(env.JWT_REFRESH_TTL),
-      },
-    });
-
-    return res.json({
-      accessToken,
-      refreshToken,
-      user: toUserDto(user),
-    });
+    return respondWithSession(res, user);
   }),
 );
+
+// Raw process.env on purpose: env.NODE_ENV defaults to "development" when unset, which must not expose this route.
+if (process.env.NODE_ENV === "development") {
+  authRouter.post(
+    "/dev-login",
+    validate({ body: devLoginBodySchema }),
+    asyncHandler(async (req, res) => {
+      const user = await prisma.user.findUnique({ where: { id: req.body.userId } });
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      return respondWithSession(res, user);
+    }),
+  );
+}
 
 authRouter.post(
   "/forgot-password",

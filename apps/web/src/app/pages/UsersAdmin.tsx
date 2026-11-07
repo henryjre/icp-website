@@ -268,6 +268,11 @@ export function UsersAdmin() {
     toast.success("Invite link copied to clipboard");
   };
 
+  const copyUserId = async (userId: string) => {
+    await navigator.clipboard.writeText(userId);
+    toast.success("User ID copied to clipboard");
+  };
+
   const deleteInvite = async (invite: InviteCodeDTO) => {
     setModalLoading(true);
     try {
@@ -590,6 +595,9 @@ export function UsersAdmin() {
                             <button onClick={() => void unarchiveUser(user.id)} className={btnCyan}>Unarchive</button>
                           ) : (
                             <button onClick={() => setArchiveUserTarget(user)} className={btnGray}>Archive</button>
+                          )}
+                          {import.meta.env.DEV && (
+                            <button onClick={() => void copyUserId(user.id)} className={btnGray}>Copy ID</button>
                           )}
                         </div>
                         {user.status === "Archived" && (

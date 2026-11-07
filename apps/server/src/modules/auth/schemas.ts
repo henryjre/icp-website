@@ -5,6 +5,10 @@ export const loginBodySchema = z.object({
   password: z.string().min(8),
 });
 
+export const devLoginBodySchema = z.object({
+  userId: z.string().min(1),
+});
+
 export const registerBodySchema = z.object({
   fullName: z.string().min(2),
   email: z.string().email(),

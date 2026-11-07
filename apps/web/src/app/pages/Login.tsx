@@ -28,14 +28,14 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [devUserId, setDevUserId] = useState("");
 
-  const onSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  const signIn = async (login: () => Promise<unknown>) => {
     setSubmitting(true);
     setError(null);
 
     try {
-      await apiClient.login(email, password);
+      await login();
       clearDraft(`${DRAFT_KEY}:email`);
       clearDraft(`${DRAFT_KEY}:password`);
       navigate(from);
@@ -48,6 +48,16 @@ export function Login() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const onSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    void signIn(() => apiClient.login(email, password));
+  };
+
+  const onDevLogin = (event: FormEvent) => {
+    event.preventDefault();
+    void signIn(() => apiClient.devLogin(devUserId.trim()));
   };
 
   return (
@@ -202,6 +212,31 @@ export function Login() {
             </motion.div>
           </motion.div>
         </form>
+
+        {import.meta.env.DEV && (
+          <form onSubmit={onDevLogin} className="mt-6 border-t border-dashed border-gray-200 pt-4">
+            <label htmlFor="dev-login-user-id" className="text-xs text-gray-400 uppercase tracking-[0.14em]">
+              Log In as User
+            </label>
+            <div className="mt-2 flex items-end gap-3">
+              <input
+                id="dev-login-user-id"
+                required
+                value={devUserId}
+                onChange={(e) => setDevUserId(e.target.value)}
+                placeholder="User ID"
+                className="min-w-0 flex-1 bg-transparent border-0 border-b-2 border-gray-200 focus:border-brand-primary focus:outline-none pb-2 pt-1 text-sm text-gray-800 transition-colors placeholder:text-gray-300"
+              />
+              <button
+                type="submit"
+                disabled={submitting}
+                className="shrink-0 rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600 transition hover:border-brand-primary hover:text-brand-primary disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
+              >
+                Log In
+              </button>
+            </div>
+          </form>
+        )}
 
         <motion.p
           initial={shouldReduceMotion ? false : { opacity: 0 }}

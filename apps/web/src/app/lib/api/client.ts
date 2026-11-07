@@ -140,6 +140,19 @@ export const apiClient = {
     return session;
   },
 
+  async devLogin(userId: string): Promise<LoginResponseDTO> {
+    const session = await request<LoginResponseDTO>(
+      "/auth/dev-login",
+      {
+        method: "POST",
+        body: JSON.stringify({ userId }),
+      },
+      { withAuth: false },
+    );
+    setSession(session);
+    return session;
+  },
+
   async register(input: RegisterRequestDTO): Promise<{ message: string; user: UserDTO }> {
     return request<{ message: string; user: UserDTO }>(
       "/auth/register",
